@@ -1,0 +1,495 @@
+// Testsuite zur Optimierung von Matrix-Vektorroutinen.
+// (c) G-CSC, Uni Frankfurt, Winter 2021/22.
+
+// Stdlib.
+#include <omp.h>
+#include <chrono>
+#include <iostream>
+#include <time.h>       /* time */
+#include <stdlib.h>     /* srand, rand */
+#include <math.h>
+#include <vector>
+
+#define USE_EIGEN3
+#ifdef USE_EIGEN3
+#include <Eigen/Sparse>
+#endif
+
+#undef GOOGLE_BENCHMARK
+#ifdef GOOGLE_BENCHMARK
+// Google benchmark
+#include <benchmark/benchmark.h>
+#endif
+
+const int myAllocSize=64;
+
+#ifdef USE_MKL_BLAS
+#include <mkl.h>
+#endif
+
+#ifdef USE_MPI
+#include <mpi>
+#endif
+
+
+// #include <Accelerate/Accelerate.h>
+#include <vecLib/vecLib.h>
+// #include <vecLib/cblas.h>
+
+
+
+// Einige defines.
+#define NVECTOR 40000000
+#define GIGA (1024*1024*1024)
+#define MEGA (1024*1024)
+
+#define TIMERSTART(start) {\
+    auto start=std::chrono::steady_clock::now();
+
+#define TIMERSTOP(start, flop, mem) \
+    auto end = std::chrono::steady_clock::now();\
+    std::chrono::duration<double> elapsed_seconds = end-start;\
+    std::cout << "elapsed time: " << elapsed_seconds.count() <<  "s, ";\
+    std::cout << "transfer: " << (mem/GIGA)/elapsed_seconds.count() <<  " GB/s, ";\
+    std::cout << "computing: " << (flop/GIGA)/elapsed_seconds.count() <<  " GFLOP/s";}
+
+
+// Klassische Routinen.
+namespace classic {
+
+    struct mvops {
+    
+        template <class TVector>
+        static double dot(const int N, const TVector &x, const TVector &y)
+        {
+            double sum = 0.0;
+            for (int i=0; i<N; ++i)
+                sum += x[i]*y[i];
+            return sum;
+        }
+        
+        template <class TVector>
+        static double norm2(const int N, const TVector &x)
+        { return dot(N,x,x); }
+        
+        template <class TVector>
+        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        {
+            for (int i=0; i<N; ++i)
+            { y[i] = alpha*x[i] + y[i]; }
+        }
+
+    };
+}
+
+
+//! Nun mit SIMD.
+namespace simd {
+
+    struct mvops {
+        template <class TVector>
+        static double dot(const int N, const TVector &x, const TVector &y)
+        {
+            double sum = 0.0;
+            #pragma omp simd reduction(+:sum)
+            for (int i=0; i<N; ++i)
+                sum += x[i]*y[i];
+            return sum;
+        }
+        
+        template <class TVector>
+        static double norm2(const int N, const TVector &x)
+        { return dot(N,x,x); }
+        
+        template <class TVector>
+        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        {
+            #pragma omp simd
+            for (int i=0; i<N; ++i)
+            { y[i] = alpha*x[i] + y[i];}
+        }
+    };
+
+}
+
+
+//! Nun mit OpenMP+SIMD
+namespace omp {
+
+    struct mvops {
+        template <class TVector>
+        static double dot(const int N, const TVector &x, const TVector &y)
+        {
+            double sum = 0.0;
+            #pragma omp parallel for simd shared(x,y,N) schedule(static) reduction(+:sum)
+            for (int i=0; i<N; ++i)
+                sum += x[i]*y[i];
+            return sum;
+        }
+        
+        template <class TVector>
+        static double norm2(const int N, const TVector &x)
+        { return dot(N,x,x); }
+        
+        template <class TVector>
+        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        {
+            #pragma omp parallel for simd shared(x,y,N) schedule(static)
+            for (int i=0; i<N; ++i)
+            { y[i] = alpha*x[i] + y[i];}
+        }
+    };
+
+}
+
+#ifdef USE_MKL_BLAS
+// Wenn eine Intel-MKL vorhanden ist, können wir diese nutzen (analog jede andere BLAS).
+namespace mymkl {
+
+    struct mvops {
+        template <class TVector>
+        static double dot(const int N, const TVector &x, const TVector &y)
+        {
+            int inc=1;
+            return ddot(&N, &x[0], &inc, &y[0], &inc);
+        }
+        
+        template <class TVector>
+        static double norm2(const int N, const TVector &x)
+        {
+            int inc=1;
+            return ddot(&N, &x[0], &inc, &x[0], &inc);
+        }
+        
+        template <class TVector>
+        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        {
+            int incx=1, incy=1;
+            daxpy(&N, &alpha, &x[0], &incx, &y[0], &incy);
+        }
+    };
+
+}
+#endif
+
+#define USE_CBLAS
+#ifdef USE_CBLAS
+// CBLAS
+namespace mycblas {
+
+    struct mvops {
+        template <class TVector>
+        static double dot(const int N, const TVector &x, const TVector &y)
+        {
+            return cblas_ddot(N, &x[0], 1, &y[0], 1);
+        }
+        
+        template <class TVector>
+        static double norm2(const int N, const TVector &x)
+        {
+            return cblas_dnrm2(N, &x[0], 1);
+        }
+        
+        template <class TVector>
+        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        {
+            int incx=1, incy=1;
+            cblas_daxpy(N, alpha, &x[0], incx, &y[0], incy);
+        }
+    };
+
+}
+#endif
+
+// #ifdef USE_EIGEN
+namespace myeigen {
+struct mvops {
+    template <class TVector>
+    static double dot(const int N, const TVector &x, const TVector &y)
+    {
+        return x.dot(y);
+    }
+    
+    template <class TVector>
+    static double norm2(const int N, const TVector &x)
+    {
+        return x.dot(x);
+    }
+    
+    template <class TVector>
+    static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+    {
+       y += alpha*x;
+    }
+};
+}
+
+#ifdef USE_MPI
+// MPI inner product
+template <class TVector>
+double dot_mpi(const int n, const TVector &x, const TVector &y, const MPI_Comm icomm)
+{
+  double s = dot_simd(n,x,y);
+    // call sequential inner product
+  double sg;
+  MPI_Allreduce(&s,&sg,1,MPI_DOUBLE,MPI_SUM,icomm);
+
+  return(sg);
+}
+#endif
+
+void CreateRandomArray(size_t n, int c, double* &x)
+{
+    std::srand(time(NULL));
+#ifdef USE_MKL_BLAS
+    // Aligned allocation.
+    x= (double*) mkl_malloc(n*sizeof(double),myAllocSize);
+#else
+    // default allocation.
+  //  x = new double[n];
+    x = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
+#endif
+    for (size_t i=0; i<n; ++i)
+    {
+        x[i] = 1.0*i*c;
+    }
+}
+
+void CreateRandomArray(size_t n, int c, std::vector<double>& x)
+{
+    std::srand(time(NULL));
+    x.resize(n);
+    for (size_t i=0; i<n; ++i)
+    {
+        x[i] = 1.0*i*c;
+    }
+    // return x;
+}
+
+void CreateRandomArray(size_t n, int c, Eigen::VectorXd& x)
+{
+    std::srand(time(NULL));
+    x.resize(n);
+    for (size_t i=0; i<n; ++i)
+    {
+        x[i] = 1.0*i*c;
+    }
+    // return x;
+}
+
+template <typename F, typename V>
+void PerformanceTest(V vec, size_t niter, size_t n)
+{
+   
+    /* dot */
+    double s=0.0;
+    TIMERSTART(tdot)
+    for (size_t i=0; i<niter; ++i) {
+        for (size_t j=0; j<niter; ++j) {
+            s += F::dot(n, vec[i], vec[j]);
+        }
+    }
+    TIMERSTOP(tdot, niter*niter*NVECTOR, 2*sizeof(double)*niter*niter*NVECTOR);
+    std::cout << " for dot: " << s << std::endl;
+
+  
+    /* norm2 */
+    const size_t nrep = 10;
+    s=0.0;
+    TIMERSTART(tnorm)
+    for (size_t i=0; i<nrep*niter; ++i) {
+        s += F::norm2(n, vec[i%niter]);
+    }
+    TIMERSTOP(tnorm, nrep*niter*NVECTOR, 1*sizeof(double)*nrep*niter*NVECTOR)
+    std::cout << " for norm: " << s << std::endl;
+    
+    /* daxpy */
+    TIMERSTART(taxpy);
+    for (size_t i=0; i<nrep*niter; ++i)
+    {
+        F::axpy(n, 2.0, vec[i%niter], vec[(i+1)%niter]);
+    }
+    TIMERSTOP(taxpy,nrep*niter*NVECTOR, 3*sizeof(double)*nrep*niter*NVECTOR)
+    std::cout << " for axpy " << std::endl;
+
+}
+
+#undef GOOGLE_BENCHMARK
+#ifdef GOOGLE_BENCHMARK
+
+
+
+template <class Part>
+class BenchmarkFixture : public ::benchmark::Fixture {
+    
+public:
+    void SetUp(const ::benchmark::State& st)
+    {
+        c = rand();
+        
+        for (size_t i=0; i<=niter; ++i)
+        {
+            // Diese Funktion ist für beide Faelle ueberladen!
+             CreateRandomArray(n, c, test[i]);
+        }
+    }
+
+    void TearDown(const ::benchmark::State&)
+    {
+        for (int i=0; i<=niter; ++i)
+            delete test[i];
+    }
+    
+    int c;
+    const size_t niter = 20;
+    double* test[niter+1];
+
+    
+   
+}
+
+
+// Define another benchmark
+static void BM_Dot(benchmark::State& state) {
+  
+    const size_t n = NVECTOR;
+    int c =atoi(argv[2]);
+
+    // Erzeuge einige Vektoren.
+    //std::vector<double> test[niter+1];        // Benutze std::vector
+    double* test[niter+1];                    // Benutze classic arrays.
+    for (size_t i=0; i<=niter; ++i){
+         CreateRandomArray(n, c, test[i]);     // Diese Funktion ist für beide Faelle ueberladen!
+    }
+      std::cout << "Classic" << std::endl;
+      PerformanceTest<classic::mvops>(test,niter, n);
+    
+  std::string x = "hello";
+  for (auto _ : state)
+    std::string copy(x);
+}
+BENCHMARK(BM_StringCopy);
+
+BENCHMARK_MAIN();
+#else
+
+
+
+template <typename TVector>
+struct Fixture {
+    
+    Fixture(int niter, size_t n) : niter(niter), n(n) {}
+    
+    void SetUp(int c)
+    {
+        test = new TVector[n+1];
+        
+        for (int i=0; i<=niter; ++i){
+             CreateRandomArray(n, c, test[i]);     // Diese Funktion ist für beide Faelle ueberladen!
+        }
+        
+    }
+    
+    void TearDown()
+    {
+        for (int i=0; i<=niter; ++i) {
+            
+        }
+      
+        delete[] test;
+    }
+    
+    ~Fixture() {}
+    
+    const int niter;
+    const size_t n;
+    TVector* test;
+};
+
+
+
+template <typename TVector>
+void run_test(int niter, int c)
+{
+    Fixture<TVector> f(niter, NVECTOR);
+    f.SetUp(c);
+    
+    std::cout << "Manual" << std::endl;
+    PerformanceTest<classic::mvops>(f.test, f.niter, f.n);
+        
+    std::cout << "SIMD" << std::endl;
+    PerformanceTest<simd::mvops>(f.test,f.niter, f.n);
+        
+    std::cout << "OMP + SIMD" << std::endl;
+    PerformanceTest<omp::mvops>(f.test,f.niter, f.n);
+        
+    // std::cout << "BLAS" << std::endl;
+    // PerformanceTest<mycblas::mvops>(f.test, f.niter, f.n);
+    
+#ifdef USE_MKL_BLAS
+    std::cout << "MKL" << std::endl;
+    PerformanceTest<mymkl::mvops>(f.test,f.niter, f.n);
+#endif
+    
+    
+#ifdef USE_MPI
+    MPI_Finalize();
+#endif
+    
+    f.TearDown();
+
+}
+
+#ifdef USE_EIGEN3
+void run_test_eigen(int niter, int c)
+{
+    typedef Eigen::VectorXd TVector;
+    Fixture<TVector> f(niter, NVECTOR);
+    f.SetUp(c);
+    
+   
+    std::cout << "Eigen" << std::endl;
+    PerformanceTest<myeigen::mvops>(f.test,f.niter, f.n);
+    f.TearDown();
+    
+}
+#endif
+
+// This is a custom main.
+int main(int argc, char* argv[])
+{
+#ifdef USE_MPI
+    MPI_Init(&argc,&argv);
+#endif
+    
+    // std::cout << omp_get_num_procs() << std::endl;
+    // std::cout << omp_get_num_threads() << std::endl;
+    
+    char *myarg= argv[1];
+    int c =atoi(argv[2]);
+    
+    const int niter = atoi(myarg);
+    std::cout << niter << std::endl;
+    
+#ifdef USE_EIGEN3
+    {
+        std::cout << "For eigen: " << std::endl;
+        run_test_eigen(niter, c);
+    }
+#endif
+    
+    {
+        std::cout << "For double* " << std::endl;
+        typedef double* TVector;
+        run_test<TVector> (niter, c);
+    }
+    
+    {
+        std::cout << "For std::vector<double>: " << std::endl;
+        typedef std::vector<double> TVector;
+        run_test<TVector> (niter, c);
+    }
+}
+    
+   
+#endif
