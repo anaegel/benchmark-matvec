@@ -36,22 +36,10 @@ const int myAllocSize=64;
 #include <vecLib/vecLib.h>
 // #include <vecLib/cblas.h>
 
+#include "timer.hpp"
 
 
-// Einige defines.
 #define NVECTOR 40000000
-#define GIGA (1024*1024*1024)
-#define MEGA (1024*1024)
-
-#define TIMERSTART(start) {\
-    auto start=std::chrono::steady_clock::now();
-
-#define TIMERSTOP(start, flop, mem) \
-    auto end = std::chrono::steady_clock::now();\
-    std::chrono::duration<double> elapsed_seconds = end-start;\
-    std::cout << "elapsed time: " << elapsed_seconds.count() <<  "s, ";\
-    std::cout << "transfer: " << (mem/GIGA)/elapsed_seconds.count() <<  " GB/s, ";\
-    std::cout << "computing: " << (flop/GIGA)/elapsed_seconds.count() <<  " GFLOP/s";}
 
 
 // Klassische Routinen.
@@ -63,8 +51,7 @@ namespace classic {
         static double dot(const int N, const TVector &x, const TVector &y)
         {
             double sum = 0.0;
-            for (int i=0; i<N; ++i)
-                sum += x[i]*y[i];
+            for (int i=0; i<N; ++i) { sum += x[i]*y[i]; }
             return sum;
         }
         
@@ -75,8 +62,7 @@ namespace classic {
         template <class TVector>
         static void axpy(const int N, double alpha, const TVector &x, TVector &y)
         {
-            for (int i=0; i<N; ++i)
-            { y[i] = alpha*x[i] + y[i]; }
+            for (int i=0; i<N; ++i)  { y[i] = alpha*x[i] + y[i]; }
         }
 
     };
@@ -93,7 +79,7 @@ namespace simd {
             double sum = 0.0;
             #pragma omp simd reduction(+:sum)
             for (int i=0; i<N; ++i)
-                sum += x[i]*y[i];
+            { sum += x[i]*y[i];}
             return sum;
         }
         
@@ -123,7 +109,7 @@ namespace omp {
             double sum = 0.0;
             #pragma omp parallel for simd shared(x,y,N) schedule(static) reduction(+:sum)
             for (int i=0; i<N; ++i)
-                sum += x[i]*y[i];
+            { sum += x[i]*y[i]; }
             return sum;
         }
         
@@ -147,25 +133,23 @@ namespace omp {
 namespace mymkl {
 
     struct mvops {
+    	static const int one = 1;
         template <class TVector>
         static double dot(const int N, const TVector &x, const TVector &y)
         {
-            int inc=1;
-            return ddot(&N, &x[0], &inc, &y[0], &inc);
+            return ddot(&N, &x[0], &one, &y[0], &one);
         }
         
         template <class TVector>
         static double norm2(const int N, const TVector &x)
         {
-            int inc=1;
-            return ddot(&N, &x[0], &inc, &x[0], &inc);
+            return ddot(&N, &x[0], &one, &x[0], &one);
         }
         
         template <class TVector>
         static void axpy(const int N, double alpha, const TVector &x, TVector &y)
         {
-            int incx=1, incy=1;
-            daxpy(&N, &alpha, &x[0], &incx, &y[0], &incy);
+            daxpy(&N, &alpha, &x[0], &one, &y[0], &one);
         }
     };
 
@@ -180,22 +164,15 @@ namespace mycblas {
     struct mvops {
         template <class TVector>
         static double dot(const int N, const TVector &x, const TVector &y)
-        {
-            return cblas_ddot(N, &x[0], 1, &y[0], 1);
-        }
+        { return cblas_ddot(N, &x[0], 1, &y[0], 1); }
         
         template <class TVector>
         static double norm2(const int N, const TVector &x)
-        {
-            return cblas_dnrm2(N, &x[0], 1);
-        }
+        { return cblas_dnrm2(N, &x[0], 1); }
         
         template <class TVector>
         static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        {
-            int incx=1, incy=1;
-            cblas_daxpy(N, alpha, &x[0], incx, &y[0], incy);
-        }
+        { cblas_daxpy(N, alpha, &x[0], 1, &y[0], 1); }
     };
 
 }
@@ -206,25 +183,24 @@ namespace myeigen {
 struct mvops {
     template <class TVector>
     static double dot(const int N, const TVector &x, const TVector &y)
-    {
-        return x.dot(y);
-    }
+    { return x.dot(y); }
     
     template <class TVector>
     static double norm2(const int N, const TVector &x)
-    {
-        return x.dot(x);
-    }
+    { return x.dot(x); }
     
     template <class TVector>
     static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-    {
-       y += alpha*x;
-    }
+    { y += alpha*x; }
 };
 }
 
+
+
 #ifdef USE_MPI
+
+namespace mpi {
+struct mvops {
 // MPI inner product
 template <class TVector>
 double dot_mpi(const int n, const TVector &x, const TVector &y, const MPI_Comm icomm)
@@ -233,49 +209,14 @@ double dot_mpi(const int n, const TVector &x, const TVector &y, const MPI_Comm i
     // call sequential inner product
   double sg;
   MPI_Allreduce(&s,&sg,1,MPI_DOUBLE,MPI_SUM,icomm);
-
   return(sg);
 }
 #endif
 
-void CreateRandomArray(size_t n, int c, double* &x)
-{
-    std::srand(time(NULL));
-#ifdef USE_MKL_BLAS
-    // Aligned allocation.
-    x= (double*) mkl_malloc(n*sizeof(double),myAllocSize);
-#else
-    // default allocation.
-  //  x = new double[n];
-    x = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
-#endif
-    for (size_t i=0; i<n; ++i)
-    {
-        x[i] = 1.0*i*c;
-    }
-}
 
-void CreateRandomArray(size_t n, int c, std::vector<double>& x)
-{
-    std::srand(time(NULL));
-    x.resize(n);
-    for (size_t i=0; i<n; ++i)
-    {
-        x[i] = 1.0*i*c;
-    }
-    // return x;
-}
 
-void CreateRandomArray(size_t n, int c, Eigen::VectorXd& x)
-{
-    std::srand(time(NULL));
-    x.resize(n);
-    for (size_t i=0; i<n; ++i)
-    {
-        x[i] = 1.0*i*c;
-    }
-    // return x;
-}
+
+
 
 template <typename F, typename V>
 void PerformanceTest(V vec, size_t niter, size_t n)
@@ -330,7 +271,8 @@ public:
         for (size_t i=0; i<=niter; ++i)
         {
             // Diese Funktion ist für beide Faelle ueberladen!
-             CreateRandomArray(n, c, test[i]);
+             InitArray(n, test[i]);
+             SetRandomArray(n, c, test[i]);
         }
     }
 
@@ -368,14 +310,73 @@ static void BM_Dot(benchmark::State& state) {
   for (auto _ : state)
     std::string copy(x);
 }
-BENCHMARK(BM_StringCopy);
+BENCHMARK(BM_Dot);
 
 BENCHMARK_MAIN();
 #else
 
+//!
+struct StdArrayAllocator
+{
+	typedef double* TVector;
+
+	static void allocate_vector (size_t n, TVector &p)
+	{ p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));}
+	// { p = (double*) new(myAllocSize, n*sizeof(double));}
+
+	static void  deallocate_vector(TVector &p)
+	{ delete p;}
+};
+
+#ifdef USE_MKL_BLAS
+// Aligned allocation for MKL.
+struct MKLMemoryAllocator
+{
+	typedef double* TVector;
+
+	static void allocate_vector   (size_t n, TVector &v)
+	{ v = (double*) mkl_malloc(n*sizeof(double), myAllocSize); }
+
+	static void deallocate_vector (TVector &v)
+	{ delete v; }
+};
+#endif
+
+struct StdVectorAllocator
+{
+	typedef std::vector<double> TVector;
+
+	static void allocate_vector(size_t n, TVector &v)
+	{ v.resize(n); }
+
+	static void deallocate_vector (TVector &v)
+	{ v.resize(0); }
+};
+
+struct EigenVectorAllocator
+{
+	typedef Eigen::VectorXd TVector;
+
+	static void allocate_vector(size_t n, TVector &v)
+	{ v.resize(n); }
+
+	static void deallocate_vector (TVector &v)
+	{ v.resize(0); }
+};
+
 
 
 template <typename TVector>
+void SetRandom(size_t n, int c, TVector &x)
+{
+	 for (size_t i=0; i<n; ++i)
+	 { x[i] = 1.0*i*c; }
+}
+
+
+
+
+template <typename TAllocator, typename TVector = typename TAllocator::TVector>
 struct Fixture {
     
     Fixture(int niter, size_t n) : niter(niter), n(n) {}
@@ -385,15 +386,19 @@ struct Fixture {
         test = new TVector[n+1];
         
         for (int i=0; i<=niter; ++i){
-             CreateRandomArray(n, c, test[i]);     // Diese Funktion ist für beide Faelle ueberladen!
+
+        	TAllocator::allocate_vector(n, test[i]);
+            SetRandom(n, c, test[i]);
         }
         
     }
     
+
+
     void TearDown()
     {
         for (int i=0; i<=niter; ++i) {
-            
+        	TAllocator::deallocate_vector(test[i]);
         }
       
         delete[] test;
@@ -401,17 +406,19 @@ struct Fixture {
     
     ~Fixture() {}
     
-    const int niter;
-    const size_t n;
-    TVector* test;
+    const size_t n;			// Size of test vector
+    TVector* test;  		// Array of test vectors
+    const int niter;		// Number of tests
+
+
 };
 
 
 
-template <typename TVector>
+template <typename TAllocator, typename TVector=typename TAllocator::TVector>
 void run_test(int niter, int c)
 {
-    Fixture<TVector> f(niter, NVECTOR);
+    Fixture<TAllocator, TVector> f(niter, NVECTOR);
     f.SetUp(c);
     
     std::cout << "Manual" << std::endl;
@@ -423,8 +430,8 @@ void run_test(int niter, int c)
     std::cout << "OMP + SIMD" << std::endl;
     PerformanceTest<omp::mvops>(f.test,f.niter, f.n);
         
-    // std::cout << "BLAS" << std::endl;
-    // PerformanceTest<mycblas::mvops>(f.test, f.niter, f.n);
+    std::cout << "BLAS" << std::endl;
+    PerformanceTest<mycblas::mvops>(f.test, f.niter, f.n);
     
 #ifdef USE_MKL_BLAS
     std::cout << "MKL" << std::endl;
@@ -444,7 +451,7 @@ void run_test(int niter, int c)
 void run_test_eigen(int niter, int c)
 {
     typedef Eigen::VectorXd TVector;
-    Fixture<TVector> f(niter, NVECTOR);
+    Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR);
     f.SetUp(c);
     
    
@@ -471,6 +478,8 @@ int main(int argc, char* argv[])
     const int niter = atoi(myarg);
     std::cout << niter << std::endl;
     
+    std::srand(time(NULL));
+
 #ifdef USE_EIGEN3
     {
         std::cout << "For eigen: " << std::endl;
@@ -480,14 +489,12 @@ int main(int argc, char* argv[])
     
     {
         std::cout << "For double* " << std::endl;
-        typedef double* TVector;
-        run_test<TVector> (niter, c);
+        run_test<StdArrayAllocator> (niter, c);
     }
     
     {
         std::cout << "For std::vector<double>: " << std::endl;
-        typedef std::vector<double> TVector;
-        run_test<TVector> (niter, c);
+        run_test<StdVectorAllocator> (niter, c);
     }
 }
     
