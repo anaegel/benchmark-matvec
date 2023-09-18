@@ -23,10 +23,6 @@
 
 const int myAllocSize=64;
 
-#ifdef USE_MKL_BLAS
-#include <mkl.h>
-#endif
-
 #ifdef USE_MPI
 #include <mpi>
 #endif
@@ -37,6 +33,10 @@ const int myAllocSize=64;
 // #include <vecLib/cblas.h>
 
 #include "timer.hpp"
+
+#include "kernel-eigen.hpp"
+// #include "kernel-mkl.hpp"
+
 
 
 #define NVECTOR 40000000
@@ -128,33 +128,7 @@ namespace omp {
 
 }
 
-#ifdef USE_MKL_BLAS
-// Wenn eine Intel-MKL vorhanden ist, können wir diese nutzen (analog jede andere BLAS).
-namespace mymkl {
 
-    struct mvops {
-    	static const int one = 1;
-        template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
-        {
-            return ddot(&N, &x[0], &one, &y[0], &one);
-        }
-        
-        template <class TVector>
-        static double norm2(const int N, const TVector &x)
-        {
-            return ddot(&N, &x[0], &one, &x[0], &one);
-        }
-        
-        template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        {
-            daxpy(&N, &alpha, &x[0], &one, &y[0], &one);
-        }
-    };
-
-}
-#endif
 
 #define USE_CBLAS
 #ifdef USE_CBLAS
@@ -178,22 +152,6 @@ namespace mycblas {
 }
 #endif
 
-// #ifdef USE_EIGEN
-namespace myeigen {
-struct mvops {
-    template <class TVector>
-    static double dot(const int N, const TVector &x, const TVector &y)
-    { return x.dot(y); }
-    
-    template <class TVector>
-    static double norm2(const int N, const TVector &x)
-    { return x.dot(x); }
-    
-    template <class TVector>
-    static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-    { y += alpha*x; }
-};
-}
 
 
 
@@ -328,20 +286,6 @@ struct StdArrayAllocator
 	{ delete p;}
 };
 
-#ifdef USE_MKL_BLAS
-// Aligned allocation for MKL.
-struct MKLMemoryAllocator
-{
-	typedef double* TVector;
-
-	static void allocate_vector   (size_t n, TVector &v)
-	{ v = (double*) mkl_malloc(n*sizeof(double), myAllocSize); }
-
-	static void deallocate_vector (TVector &v)
-	{ delete v; }
-};
-#endif
-
 struct StdVectorAllocator
 {
 	typedef std::vector<double> TVector;
@@ -353,16 +297,7 @@ struct StdVectorAllocator
 	{ v.resize(0); }
 };
 
-struct EigenVectorAllocator
-{
-	typedef Eigen::VectorXd TVector;
 
-	static void allocate_vector(size_t n, TVector &v)
-	{ v.resize(n); }
-
-	static void deallocate_vector (TVector &v)
-	{ v.resize(0); }
-};
 
 
 
@@ -386,7 +321,6 @@ struct Fixture {
         test = new TVector[n+1];
         
         for (int i=0; i<=niter; ++i){
-
         	TAllocator::allocate_vector(n, test[i]);
             SetRandom(n, c, test[i]);
         }
@@ -406,9 +340,10 @@ struct Fixture {
     
     ~Fixture() {}
     
+    const int niter;		// Number of tests
     const size_t n;			// Size of test vector
     TVector* test;  		// Array of test vectors
-    const int niter;		// Number of tests
+
 
 
 };
