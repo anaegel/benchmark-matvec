@@ -1,5 +1,8 @@
 ** Entwurf einer Testsuite **
 
+
+![CodeClimate]([https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/maintainability])
+
 Modellierung und Simulation 2 - Winter 2021/22
 (c) G-CSC, Uni Frankfurt
 
