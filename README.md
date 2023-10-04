@@ -1,5 +1,8 @@
 ** Entwurf einer Testsuite **
 
+
+[![Test Coverage](https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/test_coverage)](https://codeclimate.com/github/anaegel/benchmark-matvec/test_coverage)
+
 Modellierung und Simulation 2 - Winter 2021/22
 (c) G-CSC, Uni Frankfurt
 
