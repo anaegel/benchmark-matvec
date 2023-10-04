@@ -1,14 +1,9 @@
 #pragma once
 
-
-#ifdef USE_MKL_BLAS
 #include <mkl.h>
-#endif
 
 
-
-#ifdef USE_MKL_BLAS
-// Aligned allocation for MKL.
+// Aligned memory allocation for MKL.
 struct MKLMemoryAllocator
 {
 	typedef double* TVector;
@@ -21,11 +16,10 @@ struct MKLMemoryAllocator
 	static void deallocate_vector (TVector &v)
 	{ delete v; }
 };
-#endif
 
 
-#ifdef USE_MKL_BLAS
-// Wenn eine Intel-MKL vorhanden ist, können wir diese nutzen (analog jede andere BLAS).
+
+// MKL-BLAS interface.
 namespace mymkl {
 
     struct mvops {
@@ -50,4 +44,4 @@ namespace mymkl {
     };
 
 }
-#endif
+

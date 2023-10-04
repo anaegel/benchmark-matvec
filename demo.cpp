@@ -10,10 +10,6 @@
 #include <math.h>
 #include <vector>
 
-#define USE_EIGEN3
-#ifdef USE_EIGEN3
-#include <Eigen/Sparse>
-#endif
 
 #undef GOOGLE_BENCHMARK
 #ifdef GOOGLE_BENCHMARK
@@ -23,164 +19,47 @@
 
 const int myAllocSize=64;
 
-#ifdef USE_MPI
-#include <mpi>
+// Default kernel.
+#include "kernel-default.hpp"
+
+// Eigen3.
+#define USE_EIGEN3
+#ifdef USE_EIGEN3
+#include "kernel-eigen.hpp"
+#endif
+
+// UG4.
+#define USE_UG4
+#ifdef USE_UG4
+#include "kernel-ug4.hpp"
+#endif
+
+// CBLAS.
+#define USE_CBLAS
+#ifdef USE_CBLAS
+#include "kernel-cblas.hpp"
+#endif
+
+// Intel MKL.
+#undef USE_MKL_BLAS
+#ifdef USE_MKL_BLAS
+#include "kernel-mkl.hpp"
 #endif
 
 
-// #include <Accelerate/Accelerate.h>
-#include <vecLib/vecLib.h>
-// #include <vecLib/cblas.h>
-
+// Timing operations.
 #include "timer.hpp"
-
-#include "kernel-eigen.hpp"
-// #include "kernel-mkl.hpp"
-
 
 
 #define NVECTOR 40000000
 
 
-// Klassische Routinen.
-namespace classic {
-
-    struct mvops {
-    
-        template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
-        {
-            double sum = 0.0;
-            for (int i=0; i<N; ++i) { sum += x[i]*y[i]; }
-            return sum;
-        }
-        
-        template <class TVector>
-        static double norm2(const int N, const TVector &x)
-        { return dot(N,x,x); }
-        
-        template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        {
-            for (int i=0; i<N; ++i)  { y[i] = alpha*x[i] + y[i]; }
-        }
-
-    };
-}
-
-
-//! Nun mit SIMD.
-namespace simd {
-
-    struct mvops {
-        template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
-        {
-            double sum = 0.0;
-            #pragma omp simd reduction(+:sum)
-            for (int i=0; i<N; ++i)
-            { sum += x[i]*y[i];}
-            return sum;
-        }
-        
-        template <class TVector>
-        static double norm2(const int N, const TVector &x)
-        { return dot(N,x,x); }
-        
-        template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        {
-            #pragma omp simd
-            for (int i=0; i<N; ++i)
-            { y[i] = alpha*x[i] + y[i];}
-        }
-    };
-
-}
-
-
-//! Nun mit OpenMP+SIMD
-namespace omp {
-
-    struct mvops {
-        template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
-        {
-            double sum = 0.0;
-            #pragma omp parallel for simd shared(x,y,N) schedule(static) reduction(+:sum)
-            for (int i=0; i<N; ++i)
-            { sum += x[i]*y[i]; }
-            return sum;
-        }
-        
-        template <class TVector>
-        static double norm2(const int N, const TVector &x)
-        { return dot(N,x,x); }
-        
-        template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        {
-            #pragma omp parallel for simd shared(x,y,N) schedule(static)
-            for (int i=0; i<N; ++i)
-            { y[i] = alpha*x[i] + y[i];}
-        }
-    };
-
-}
-
-
-
-#define USE_CBLAS
-#ifdef USE_CBLAS
-// CBLAS
-namespace mycblas {
-
-    struct mvops {
-        template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
-        { return cblas_ddot(N, &x[0], 1, &y[0], 1); }
-        
-        template <class TVector>
-        static double norm2(const int N, const TVector &x)
-        { return cblas_dnrm2(N, &x[0], 1); }
-        
-        template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-        { cblas_daxpy(N, alpha, &x[0], 1, &y[0], 1); }
-    };
-
-}
-#endif
-
-
-
-
-#ifdef USE_MPI
-
-namespace mpi {
-struct mvops {
-// MPI inner product
-template <class TVector>
-double dot_mpi(const int n, const TVector &x, const TVector &y, const MPI_Comm icomm)
-{
-  double s = dot_simd(n,x,y);
-    // call sequential inner product
-  double sg;
-  MPI_Allreduce(&s,&sg,1,MPI_DOUBLE,MPI_SUM,icomm);
-  return(sg);
-}
-#endif
-
-
-
-
-
-
+// This is a performance test for all functions.
 template <typename F, typename V>
 void PerformanceTest(V vec, size_t niter, size_t n)
 {
    
-    /* dot */
+    /* 1. dot */
     double s=0.0;
     TIMERSTART(tdot)
     for (size_t i=0; i<niter; ++i) {
@@ -191,8 +70,9 @@ void PerformanceTest(V vec, size_t niter, size_t n)
     TIMERSTOP(tdot, niter*niter*NVECTOR, 2*sizeof(double)*niter*niter*NVECTOR);
     std::cout << " for dot: " << s << std::endl;
 
-  
-    /* norm2 */
+
+
+    /* 2. norm2 */
     const size_t nrep = 10;
     s=0.0;
     TIMERSTART(tnorm)
@@ -202,7 +82,9 @@ void PerformanceTest(V vec, size_t niter, size_t n)
     TIMERSTOP(tnorm, nrep*niter*NVECTOR, 1*sizeof(double)*nrep*niter*NVECTOR)
     std::cout << " for norm: " << s << std::endl;
     
-    /* daxpy */
+
+
+    /* 3. daxpy */
     TIMERSTART(taxpy);
     for (size_t i=0; i<nrep*niter; ++i)
     {
@@ -213,65 +95,6 @@ void PerformanceTest(V vec, size_t niter, size_t n)
 
 }
 
-#undef GOOGLE_BENCHMARK
-#ifdef GOOGLE_BENCHMARK
-
-
-
-template <class Part>
-class BenchmarkFixture : public ::benchmark::Fixture {
-    
-public:
-    void SetUp(const ::benchmark::State& st)
-    {
-        c = rand();
-        
-        for (size_t i=0; i<=niter; ++i)
-        {
-            // Diese Funktion ist für beide Faelle ueberladen!
-             InitArray(n, test[i]);
-             SetRandomArray(n, c, test[i]);
-        }
-    }
-
-    void TearDown(const ::benchmark::State&)
-    {
-        for (int i=0; i<=niter; ++i)
-            delete test[i];
-    }
-    
-    int c;
-    const size_t niter = 20;
-    double* test[niter+1];
-
-    
-   
-}
-
-
-// Define another benchmark
-static void BM_Dot(benchmark::State& state) {
-  
-    const size_t n = NVECTOR;
-    int c =atoi(argv[2]);
-
-    // Erzeuge einige Vektoren.
-    //std::vector<double> test[niter+1];        // Benutze std::vector
-    double* test[niter+1];                    // Benutze classic arrays.
-    for (size_t i=0; i<=niter; ++i){
-         CreateRandomArray(n, c, test[i]);     // Diese Funktion ist für beide Faelle ueberladen!
-    }
-      std::cout << "Classic" << std::endl;
-      PerformanceTest<classic::mvops>(test,niter, n);
-    
-  std::string x = "hello";
-  for (auto _ : state)
-    std::string copy(x);
-}
-BENCHMARK(BM_Dot);
-
-BENCHMARK_MAIN();
-#else
 
 //!
 struct StdArrayAllocator
@@ -286,6 +109,8 @@ struct StdArrayAllocator
 	{ delete p;}
 };
 
+
+
 struct StdVectorAllocator
 {
 	typedef std::vector<double> TVector;
@@ -296,8 +121,6 @@ struct StdVectorAllocator
 	static void deallocate_vector (TVector &v)
 	{ v.resize(0); }
 };
-
-
 
 
 
@@ -314,24 +137,24 @@ void SetRandom(size_t n, int c, TVector &x)
 template <typename TAllocator, typename TVector = typename TAllocator::TVector>
 struct Fixture {
     
-    Fixture(int niter, size_t n) : niter(niter), n(n) {}
+    Fixture(int niter, size_t n, int c) : niter(niter), n(n), c(c) {}
     
-    void SetUp(int c)
+    void SetUp()
     {
         test = new TVector[n+1];
         
-        for (int i=0; i<=niter; ++i){
+        for (int i=0; i<=niter; ++i)
+        {
         	TAllocator::allocate_vector(n, test[i]);
             SetRandom(n, c, test[i]);
         }
         
     }
     
-
-
     void TearDown()
     {
-        for (int i=0; i<=niter; ++i) {
+        for (int i=0; i<=niter; ++i)
+        {
         	TAllocator::deallocate_vector(test[i]);
         }
       
@@ -340,11 +163,11 @@ struct Fixture {
     
     ~Fixture() {}
     
+
     const int niter;		// Number of tests
     const size_t n;			// Size of test vector
+    const int c;
     TVector* test;  		// Array of test vectors
-
-
 
 };
 
@@ -353,8 +176,8 @@ struct Fixture {
 template <typename TAllocator, typename TVector=typename TAllocator::TVector>
 void run_test(int niter, int c)
 {
-    Fixture<TAllocator, TVector> f(niter, NVECTOR);
-    f.SetUp(c);
+    Fixture<TAllocator, TVector> f(niter, NVECTOR, c);
+    f.SetUp();
     
     std::cout << "Manual" << std::endl;
     PerformanceTest<classic::mvops>(f.test, f.niter, f.n);
@@ -373,11 +196,6 @@ void run_test(int niter, int c)
     PerformanceTest<mymkl::mvops>(f.test,f.niter, f.n);
 #endif
     
-    
-#ifdef USE_MPI
-    MPI_Finalize();
-#endif
-    
     f.TearDown();
 
 }
@@ -386,16 +204,115 @@ void run_test(int niter, int c)
 void run_test_eigen(int niter, int c)
 {
     typedef Eigen::VectorXd TVector;
-    Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR);
-    f.SetUp(c);
-    
-   
+    Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR, c);
+    f.SetUp();
+
     std::cout << "Eigen" << std::endl;
     PerformanceTest<myeigen::mvops>(f.test,f.niter, f.n);
+
     f.TearDown();
-    
+
+
+    size_t npoints = 2000;
+    TVector x(npoints*npoints);
+    typedef EigenVectorAllocator::TMatrix TMatrix;
+    TMatrix* mat = EigenVectorAllocator::create_matrix(2000);
+    EigenVectorAllocator::create_matrix(npoints);
+
+
+    /* 4. maxpy */
+    size_t nrep = 10;
+
+    for (size_t i=0; i<nrep; ++i)
+    {
+       myeigen::mvops::matmul(npoints*npoints, *mat, x);
+    }
+
+    std::cout << " for matmul " << std::endl;
+
 }
 #endif
+
+
+
+void run_test_ug4(int niter, int c)
+{
+
+	{
+		typedef UG4Allocator::TVector TVector;
+		Fixture<UG4Allocator, TVector> f(niter, NVECTOR, c);
+		f.SetUp();
+
+		std::cout << "UG4-CPU1" << std::endl;
+		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
+
+		f.TearDown();
+	}
+
+	{
+		typedef UG4AllocatorBlock<2> TAlgebra3;
+		Fixture<TAlgebra3> f(niter, NVECTOR, c);
+		f.SetUp();
+
+		std::cout << "UG4-CPU2" << std::endl;
+		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
+
+		f.TearDown();
+	}
+
+/*	{
+		typedef UG4AllocatorBlock<3> TAlgebra3;
+		Fixture<TAlgebra3> f(niter, NVECTOR, c);
+		f.SetUp();
+
+		std::cout << "UG4-CPU3" << std::endl;
+		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
+		f.TearDown();
+	}
+*/
+	{
+		typedef UG4AllocatorBlock<4> TAlgebra4;
+		Fixture<TAlgebra4> f(niter, NVECTOR, c);
+		f.SetUp();
+
+		std::cout << "UG4-CPU4" << std::endl;
+		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
+
+		f.TearDown();
+	}
+
+
+}
+
+
+#ifdef GOOGLE_BENCHMARK
+
+
+template <typename TFixture>
+class BenchmarkFixture : public TFixture, ::benchmark::Fixture
+{
+
+public:
+    void SetUp(const ::benchmark::State& st)
+    {}
+
+    void TearDown(const ::benchmark::State&)
+    {}
+
+};
+
+
+// Define another benchmark
+static void BM_Dot(benchmark::State& state) {
+}
+
+BENCHMARK(BM_Dot);
+
+BENCHMARK_MAIN();
+
+
+#else
+
 
 // This is a custom main.
 int main(int argc, char* argv[])
@@ -408,12 +325,15 @@ int main(int argc, char* argv[])
     // std::cout << omp_get_num_threads() << std::endl;
     
     char *myarg= argv[1];
-    int c =atoi(argv[2]);
-    
     const int niter = atoi(myarg);
     std::cout << niter << std::endl;
     
+
     std::srand(time(NULL));
+    int c =atoi(argv[2]);
+
+
+
 
 #ifdef USE_EIGEN3
     {
@@ -422,6 +342,13 @@ int main(int argc, char* argv[])
     }
 #endif
     
+
+#ifdef USE_UG4
+    {
+           std::cout << "UG4: " << std::endl;
+           run_test_ug4(niter, c);
+    }
+
     {
         std::cout << "For double* " << std::endl;
         run_test<StdArrayAllocator> (niter, c);
@@ -431,6 +358,11 @@ int main(int argc, char* argv[])
         std::cout << "For std::vector<double>: " << std::endl;
         run_test<StdVectorAllocator> (niter, c);
     }
+
+
+#ifdef USE_MPI
+    MPI_Finalize();
+#endif
 }
     
    
