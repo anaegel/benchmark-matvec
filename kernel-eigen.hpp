@@ -100,7 +100,11 @@ struct mvops {
     { y += alpha*x; }
 
     template <class TVector, class TMatrix>
-    static void matmul(const int N, TMatrix &A, const TVector &x)
-    {}
+    static void matmul_set(const int N, TVector &y, const TMatrix &A, const TVector &x)
+    { y = A*x; }
+
+    template <class TVector, class TMatrix>
+    static void matmul_add(const int N, TVector &y, const TMatrix &A, const TVector &x)
+    { y += A*x; }
 };
 }

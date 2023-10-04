@@ -68,7 +68,7 @@ void PerformanceTest(V vec, size_t niter, size_t n)
         }
     }
     TIMERSTOP(tdot, niter*niter*NVECTOR, 2*sizeof(double)*niter*niter*NVECTOR);
-    std::cout << " for dot: " << s << std::endl;
+    std::cout << " for dot: " << s << " (for " << niter*niter <<" repetitions)" <<std::endl;
 
 
 
@@ -213,23 +213,55 @@ void run_test_eigen(int niter, int c)
     f.TearDown();
 
 
-    size_t npoints = 2000;
-    TVector x(npoints*npoints);
+    {
+    // 4. maxpy
+    // a) Fixtures
+    const size_t npoints = 2000;
+    const size_t nvector = npoints*npoints;
+    TVector x(nvector);
+    TVector b(nvector);
     typedef EigenVectorAllocator::TMatrix TMatrix;
     TMatrix* mat = EigenVectorAllocator::create_matrix(2000);
     EigenVectorAllocator::create_matrix(npoints);
 
 
-    /* 4. maxpy */
-    size_t nrep = 10;
 
-    for (size_t i=0; i<nrep; ++i)
+    // b) Test
+    size_t nrep = 100*niter;
+
+    const size_t NSTENCIL = 5;
+
+
     {
-       myeigen::mvops::matmul(npoints*npoints, *mat, x);
+
+    	 // y = A*x
+    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector;  //
+    	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
+
+    	TIMERSTART(tmatmul);
+    	for (size_t i=0; i<nrep; ++i)
+    	{
+    		myeigen::mvops::matmul_set(nvector, b, *mat, x);
+    	}
+    	TIMERSTOP(tmatmul,  mem_cnt, flop_cnt)
+    	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
     }
 
-    std::cout << " for matmul " << std::endl;
+    {
 
+    	// y = y + A*x
+    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector;  //
+    	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
+
+       	TIMERSTART(tmatmul);
+       	for (size_t i=0; i<nrep; ++i)
+       	{
+       		myeigen::mvops::matmul_add(nvector, b, *mat, x);
+       	}
+       	TIMERSTOP(tmatmul,  mem_cnt, flop_cnt)
+       	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
+     }
+    }
 }
 #endif
 
@@ -348,7 +380,7 @@ int main(int argc, char* argv[])
            std::cout << "UG4: " << std::endl;
            run_test_ug4(niter, c);
     }
-
+#endif
     {
         std::cout << "For double* " << std::endl;
         run_test<StdArrayAllocator> (niter, c);
