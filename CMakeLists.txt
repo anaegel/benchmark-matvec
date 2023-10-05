@@ -26,24 +26,51 @@ endif()
 
 
 
-
-
-
-
-# OpenMP
+###############################
+# OpenMP (optional)
+###############################
 find_package(OpenMP)
 
 
+
+###############################
+# BLAS
+###############################
 # set(BLA_VENDOR Intel)
 find_package(BLAS)
+message(STATUS "Found BLAS: ${BLAS_FOUND}")
 
-# Eigen3
+
+
+###############################
+# Eigen3 (optional)
+###############################
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+if(Eigen3_FOUND) 
+ 	message(STATUS "Found Eigen3:")
+	add_compile_definitions(-DUSE_EIGEN3)
+endif(Eigen3_FOUND) 
+
+###############################
+# UG4 (optional)
+###############################
+if(DEFINED ENV{UG4_ROOT})
+	message(STATUS "Found UG4: $ENV{UG4_ROOT}")
+	add_compile_definitions(-DUSE_UG4)
+else(DEFINED ENV{UG4_ROOT})
+	message(STATUS "UG4 not found.")
+endif(DEFINED ENV{UG4_ROOT})
 
 
-# Google benchmark
-find_package(benchmark REQUIRED)
-
+###############################
+# Google benchmark (optional)
+###############################
+find_package(benchmark)
+message(STATUS "Found Google benchmark: ${benchmark_FOUND}")
+if(benchmark_FOUND) 
+ 	
+	add_compile_definitions(-DUSE_GOOGLE_BENCHMARK)
+endif(benchmark_FOUND) 
 
 
 
@@ -59,7 +86,6 @@ if (BLAS_FOUND)
    # set(HAS_MKL_BLAS "USE_MKL_BLAS")
    message(STATUS "Found BLAS: ${BLAS_LIBRARIES}, ${BLAS_LINKER_FLAGS}")
    message(STATUS "Info: Using BLAS (Include: ${BLAS_INCLUDE_DIR}, Lib: ${BLAS_LIBRARIES})")	
-	
 endif (BLAS_FOUND)
 
 

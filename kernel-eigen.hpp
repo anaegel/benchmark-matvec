@@ -83,7 +83,6 @@ public:
 };
 
 
-
 namespace myeigen {
 struct mvops {
 

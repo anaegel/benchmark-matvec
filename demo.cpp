@@ -23,13 +23,11 @@ const int myAllocSize=64;
 #include "kernel-default.hpp"
 
 // Eigen3.
-#define USE_EIGEN3
 #ifdef USE_EIGEN3
 #include "kernel-eigen.hpp"
 #endif
 
 // UG4.
-#define USE_UG4
 #ifdef USE_UG4
 #include "kernel-ug4.hpp"
 #endif
@@ -235,7 +233,7 @@ void run_test_eigen(int niter, int c)
     {
 
     	 // y = A*x
-    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector;  //
+    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector*sizeof(double);  //
     	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
 
     	TIMERSTART(tmatmul);
@@ -243,14 +241,14 @@ void run_test_eigen(int niter, int c)
     	{
     		myeigen::mvops::matmul_set(nvector, b, *mat, x);
     	}
-    	TIMERSTOP(tmatmul,  mem_cnt, flop_cnt)
+    	TIMERSTOP(tmatmul,  flop_cnt, mem_cnt)
     	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
     }
 
     {
 
     	// y = y + A*x
-    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector;  //
+    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector*sizeof(double);  //
     	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
 
        	TIMERSTART(tmatmul);
@@ -258,7 +256,7 @@ void run_test_eigen(int niter, int c)
        	{
        		myeigen::mvops::matmul_add(nvector, b, *mat, x);
        	}
-       	TIMERSTOP(tmatmul,  mem_cnt, flop_cnt)
+       	TIMERSTOP(tmatmul, flop_cnt, mem_cnt)
        	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
      }
     }
@@ -363,8 +361,6 @@ int main(int argc, char* argv[])
 
     std::srand(time(NULL));
     int c =atoi(argv[2]);
-
-
 
 
 #ifdef USE_EIGEN3
