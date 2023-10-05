@@ -264,7 +264,7 @@ void run_test_eigen(int niter, int c)
 #endif
 
 
-
+#ifdef USE_UG4
 void run_test_ug4(int niter, int c)
 {
 
@@ -313,6 +313,7 @@ void run_test_ug4(int niter, int c)
 
 
 }
+#endif
 
 
 #ifdef GOOGLE_BENCHMARK
