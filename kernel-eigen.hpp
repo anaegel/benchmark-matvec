@@ -15,13 +15,17 @@ struct EigenVectorAllocator
 
 
 
-
+	// Matrix stuff
 	typedef Eigen::SparseMatrix<double> TMatrix;
 	static TMatrix* create_matrix(size_t n)
 	{
 		const size_t nrows = n*n;
 		TMatrix* mat = new TMatrix(nrows,nrows);
 		mat->reserve(Eigen::VectorXi::Constant(nrows,6));
+		// std::cout << "reserve done!" << std::endl;
+
+		init_5pt_matrix(*mat, n);
+		// std::cout << "init done!" << std::endl;
 		return mat;
 	}
 
@@ -29,54 +33,60 @@ protected:
 	static size_t ijindex(size_t N, size_t i, size_t j)
 	{ return i*N+j; }
 
-public:
+
 	static void init_5pt_matrix(TMatrix& mat, int N)
 	{
 		const size_t n = mat.rows();
 
-		// Create triplets.
+		// Init: Create triplets.
 		typedef Eigen::Triplet<double> T;
 		std::vector<T> tripletList;
 		tripletList.reserve(n*5);
 
 
+		// Fill:
 		for (size_t j=0; j<N; ++j)
 		{
+			// First "row", i=0
 			const size_t ind  = ijindex(N, 0, j);
 			tripletList.push_back(T(ind,ind, 1.0));
 		}
 
-		for (size_t i=0; i<N; ++i)
+		for (size_t i=1; i<N-1; ++i)
 		{
 			{
 				const size_t ind  = ijindex(N, i, 0);
 				tripletList.push_back(T(ind,ind, 1.0));
 			}
 
-			for (size_t j=1; j<n-1; ++j)
+			for (size_t j=1; j<N-1; ++j)
 			{
 				const size_t ind = ijindex(N, i, j);
-				tripletList.push_back(T(ind,ind-n, -1.0));
+				tripletList.push_back(T(ind,ind-N, -1.0));
 				tripletList.push_back(T(ind,ind-1, -1.0));
 				tripletList.push_back(T(ind,ind,	4.0));
 				tripletList.push_back(T(ind,ind+1, -1.0));
-				tripletList.push_back(T(ind,ind+n, -1.0));
+				tripletList.push_back(T(ind,ind+N, -1.0));
 			}
 
 			{
-				const size_t ind  = ijindex(N, i, n-1);
+				const size_t ind  = ijindex(N, i, N-1);
 				tripletList.push_back(T(ind,ind, 1.0));
 			}
 
 		}
 
-		for (size_t j=0; j<n; ++j)
+		for (size_t j=0; j<N; ++j)
 		{
-			const size_t ind = ijindex(N, n-1, j);
-			tripletList.push_back(T(ind,ind, 1.0));
+			const size_t ind = ijindex(N, N-1, j);
+			tripletList.push_back(T(ind,ind, 1.0));  // set_matrix_row
 		}
 
-		// Fill matrix.
+		// DEBUG
+		// for (auto e : tripletList)
+		// { std::cout << e.row() << "," << e.col() << ":" <<e.value()  <<std::endl; }
+
+		// Close: Copy to matrix.
 		mat.setFromTriplets(tripletList.begin(), tripletList.end());
 	}
 

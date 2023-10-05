@@ -219,13 +219,13 @@ void run_test_eigen(int niter, int c)
     TVector x(nvector);
     TVector b(nvector);
     typedef EigenVectorAllocator::TMatrix TMatrix;
-    TMatrix* mat = EigenVectorAllocator::create_matrix(2000);
-    EigenVectorAllocator::create_matrix(npoints);
+    TMatrix* mat = EigenVectorAllocator::create_matrix(npoints);
+
 
 
 
     // b) Test
-    size_t nrep = 100*niter;
+    size_t nrep = 50*niter;
 
     const size_t NSTENCIL = 5;
 
