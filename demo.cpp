@@ -19,6 +19,9 @@
 
 const int myAllocSize=64;
 
+// Fixtures (meta-programming)
+#include "fixture-metas.hpp"
+
 // Default kernel.
 #include "kernel-default.hpp"
 
@@ -48,15 +51,15 @@ const int myAllocSize=64;
 // Timing operations.
 #include "timer.hpp"
 
-
+#define NCELLS 2000
 #define NVECTOR 40000000
 
 
 // This is a performance test for all functions.
 template <typename F, typename V>
-void PerformanceTest(V vec, size_t niter, size_t n)
+void PerformanceTestVector(V vec, size_t niter, size_t n, size_t block_size=1)
 {
-   
+   const size_t nentries = NVECTOR*block_size;
     /* 1. dot */
     double s=0.0;
     TIMERSTART(tdot)
@@ -65,7 +68,7 @@ void PerformanceTest(V vec, size_t niter, size_t n)
             s += F::dot(n, vec[i], vec[j]);
         }
     }
-    TIMERSTOP(tdot, niter*niter*NVECTOR, 2*sizeof(double)*niter*niter*NVECTOR);
+    TIMERSTOP(tdot, niter*niter*nentries, 2*sizeof(double)*niter*niter*nentries);
     std::cout << " for dot: " << s << " (for " << niter*niter <<" repetitions)" <<std::endl;
 
 
@@ -77,7 +80,7 @@ void PerformanceTest(V vec, size_t niter, size_t n)
     for (size_t i=0; i<nrep*niter; ++i) {
         s += F::norm2(n, vec[i%niter]);
     }
-    TIMERSTOP(tnorm, nrep*niter*NVECTOR, 1*sizeof(double)*nrep*niter*NVECTOR)
+    TIMERSTOP(tnorm, nrep*niter*nentries, 1*sizeof(double)*nrep*niter*nentries)
     std::cout << " for norm: " << s << std::endl;
     
 
@@ -88,8 +91,53 @@ void PerformanceTest(V vec, size_t niter, size_t n)
     {
         F::axpy(n, 2.0, vec[i%niter], vec[(i+1)%niter]);
     }
-    TIMERSTOP(taxpy,nrep*niter*NVECTOR, 3*sizeof(double)*nrep*niter*NVECTOR)
+    TIMERSTOP(taxpy,nrep*niter*nentries, 3*sizeof(double)*nrep*niter*nentries)
     std::cout << " for axpy " << std::endl;
+
+}
+
+// This is a performance test for all functions.
+template <typename TFunctions, typename TFixture>
+void PerformanceMV(const size_t nrep, TFixture &f, size_t block_size=1)
+{
+	const size_t NSTENCIL = 5;
+	const size_t nvector = f.n;
+
+	const size_t m2 = block_size*block_size;
+
+	// Each matrix entry is multiplied by a vector entry the vector. The product is added to the dest.
+	const size_t flop_cnt_per_row = ((m2*NSTENCIL) + block_size* NSTENCIL) ;
+
+	// For each block row, we must collect (m^2 * NSTENCIL) matrix entries and 2*m vector entries
+	const size_t mem_cnt_per_row = sizeof(double) *   // for each block_row:
+			( block_size*block_size*NSTENCIL + 2* block_size);  //
+
+	{	// 4. y = A*x
+		const size_t flop_cnt = (NSTENCIL+1)*nvector;
+		const size_t mem_cnt = (NSTENCIL+1)*nvector*sizeof(double);  // each m^2
+
+		TIMERSTART(tmatmul);
+		for (size_t i=0; i<nrep; ++i)
+		{ TFunctions::matmul_set(f.n, f.b, *(f.A), f.x); }
+
+		TIMERSTOP(tmatmul, nrep*flop_cnt_per_row*nvector, nrep*mem_cnt_per_row*nvector);
+		std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
+	}
+
+	{	// 5. y += A*x
+
+
+
+
+		TIMERSTART(tmatmul);
+		for (size_t i=0; i<nrep; ++i)
+		{ TFunctions::matmul_add(f.n, f.b, *(f.A), f.x); }
+
+		TIMERSTOP(tmatmul, nrep*flop_cnt_per_row*nvector, nrep*mem_cnt_per_row*nvector)
+		std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
+	}
+
+
 
 }
 
@@ -122,52 +170,6 @@ struct StdVectorAllocator
 
 
 
-template <typename TVector>
-void SetRandom(size_t n, int c, TVector &x)
-{
-	 for (size_t i=0; i<n; ++i)
-	 { x[i] = 1.0*i*c; }
-}
-
-
-
-
-template <typename TAllocator, typename TVector = typename TAllocator::TVector>
-struct Fixture {
-    
-    Fixture(int niter, size_t n, int c) : niter(niter), n(n), c(c) {}
-    
-    void SetUp()
-    {
-        test = new TVector[n+1];
-        
-        for (int i=0; i<=niter; ++i)
-        {
-        	TAllocator::allocate_vector(n, test[i]);
-            SetRandom(n, c, test[i]);
-        }
-        
-    }
-    
-    void TearDown()
-    {
-        for (int i=0; i<=niter; ++i)
-        {
-        	TAllocator::deallocate_vector(test[i]);
-        }
-      
-        delete[] test;
-    }
-    
-    ~Fixture() {}
-    
-
-    const int niter;		// Number of tests
-    const size_t n;			// Size of test vector
-    const int c;
-    TVector* test;  		// Array of test vectors
-
-};
 
 
 
@@ -178,20 +180,20 @@ void run_test(int niter, int c)
     f.SetUp();
     
     std::cout << "Manual" << std::endl;
-    PerformanceTest<classic::mvops>(f.test, f.niter, f.n);
+    PerformanceTestVector<classic::mvops>(f.test, f.niter, f.n);
         
     std::cout << "SIMD" << std::endl;
-    PerformanceTest<simd::mvops>(f.test,f.niter, f.n);
+    PerformanceTestVector<simd::mvops>(f.test,f.niter, f.n);
         
     std::cout << "OMP + SIMD" << std::endl;
-    PerformanceTest<omp::mvops>(f.test,f.niter, f.n);
+    PerformanceTestVector<omp::mvops>(f.test,f.niter, f.n);
         
     std::cout << "BLAS" << std::endl;
-    PerformanceTest<mycblas::mvops>(f.test, f.niter, f.n);
+    PerformanceTestVector<mycblas::mvops>(f.test, f.niter, f.n);
     
 #ifdef USE_MKL_BLAS
     std::cout << "MKL" << std::endl;
-    PerformanceTest<mymkl::mvops>(f.test,f.niter, f.n);
+    PerformanceTestVector<mymkl::mvops>(f.test,f.niter, f.n);
 #endif
     
     f.TearDown();
@@ -199,117 +201,63 @@ void run_test(int niter, int c)
 }
 
 #ifdef USE_EIGEN3
-void run_test_eigen(int niter, int c)
+void run_test_eigen3(int niter, int c)
 {
-    typedef Eigen::VectorXd TVector;
-    Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR, c);
-    f.SetUp();
+	{
 
-    std::cout << "Eigen" << std::endl;
-    PerformanceTest<myeigen::mvops>(f.test,f.niter, f.n);
+		typedef Eigen::VectorXd TVector;
 
-    f.TearDown();
+		// Vector tests
+		Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR, c);
+		f.SetUp();
+		PerformanceTestVector<myeigen::mvops>(f.test,f.niter, f.n);
+		f.TearDown();
 
+		// Matix-vector tests
+    	MatrixVectorFixture<EigenMatrixVectorAllocator> fdata(NCELLS);
+    	fdata.SetUp();
+    	PerformanceMV<myeigen::mvops>(50*niter, fdata);
+    	fdata.TearDown();
+	}
 
-    {
-    // 4. maxpy
-    // a) Fixtures
-    const size_t npoints = 2000;
-    const size_t nvector = npoints*npoints;
-    TVector x(nvector);
-    TVector b(nvector);
-    typedef EigenVectorAllocator::TMatrix TMatrix;
-    TMatrix* mat = EigenVectorAllocator::create_matrix(npoints);
-
-
-
-
-    // b) Test
-    size_t nrep = 50*niter;
-
-    const size_t NSTENCIL = 5;
-
-
-    {
-
-    	 // y = A*x
-    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector*sizeof(double);  //
-    	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
-
-    	TIMERSTART(tmatmul);
-    	for (size_t i=0; i<nrep; ++i)
-    	{
-    		myeigen::mvops::matmul_set(nvector, b, *mat, x);
-    	}
-    	TIMERSTOP(tmatmul,  flop_cnt, mem_cnt)
-    	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
-    }
-
-    {
-
-    	// y = y + A*x
-    	 const size_t mem_cnt = nrep*(NSTENCIL+1)*nvector*sizeof(double);  //
-    	 const size_t flop_cnt = nrep*(NSTENCIL+1)*nvector;
-
-       	TIMERSTART(tmatmul);
-       	for (size_t i=0; i<nrep; ++i)
-       	{
-       		myeigen::mvops::matmul_add(nvector, b, *mat, x);
-       	}
-       	TIMERSTOP(tmatmul, flop_cnt, mem_cnt)
-       	std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
-     }
-    }
 }
 #endif
 
 
 #ifdef USE_UG4
+
+template <typename TAllocator>
+void run_single_test_ug4(int niter, int c, size_t block_size=1)
+{
+	Fixture<TAllocator> f(niter, NVECTOR, c);
+	f.SetUp();
+	PerformanceTestVector<myug4::mvops>(f.test,f.niter, f.n, block_size);
+	f.TearDown();
+
+	MatrixVectorFixture<TAllocator> fdata(NCELLS);
+	fdata.SetUp();
+	PerformanceMV<myug4::mvops>(50*niter, fdata, block_size);
+	fdata.TearDown();
+
+}
+
+
+//! Run all tests for UG4.
 void run_test_ug4(int niter, int c)
 {
 
-	{
-		typedef UG4Allocator::TVector TVector;
-		Fixture<UG4Allocator, TVector> f(niter, NVECTOR, c);
-		f.SetUp();
+	std::cout << "UG4-CPU1" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUAlgebra> TAllocator1;
+	run_single_test_ug4<TAllocator1> (niter, c, 1);
 
-		std::cout << "UG4-CPU1" << std::endl;
-		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
+	std::cout << "UG4-CPU2" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<2>> TAllocator2;
+	run_single_test_ug4<TAllocator2> (niter, c, 2);
 
-		f.TearDown();
-	}
 
-	{
-		typedef UG4AllocatorBlock<2> TAlgebra3;
-		Fixture<TAlgebra3> f(niter, NVECTOR, c);
-		f.SetUp();
-
-		std::cout << "UG4-CPU2" << std::endl;
-		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
-
-		f.TearDown();
-	}
-
-/*	{
-		typedef UG4AllocatorBlock<3> TAlgebra3;
-		Fixture<TAlgebra3> f(niter, NVECTOR, c);
-		f.SetUp();
-
-		std::cout << "UG4-CPU3" << std::endl;
-		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
-		f.TearDown();
-	}
-*/
-	{
-		typedef UG4AllocatorBlock<4> TAlgebra4;
-		Fixture<TAlgebra4> f(niter, NVECTOR, c);
-		f.SetUp();
-
-		std::cout << "UG4-CPU4" << std::endl;
-		PerformanceTest<myug4::mvops>(f.test,f.niter, f.n);
-
-		f.TearDown();
-	}
+	std::cout << "UG4-CPU4" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<4>> TAllocator4;
+	run_single_test_ug4<TAllocator4> (niter, c, 4);
 
 
 }
@@ -364,10 +312,21 @@ int main(int argc, char* argv[])
     int c =atoi(argv[2]);
 
 
+
+    {
+        std::cout << "For double* " << std::endl;
+        run_test<StdArrayAllocator> (niter, c);
+    }
+
+    {
+        std::cout << "For std::vector<double>: " << std::endl;
+        run_test<StdVectorAllocator> (niter, c);
+    }
+
 #ifdef USE_EIGEN3
     {
-        std::cout << "For eigen: " << std::endl;
-        run_test_eigen(niter, c);
+        std::cout << "Eigen3: " << std::endl;
+        run_test_eigen3(niter, c);
     }
 #endif
     
@@ -378,16 +337,6 @@ int main(int argc, char* argv[])
            run_test_ug4(niter, c);
     }
 #endif
-    {
-        std::cout << "For double* " << std::endl;
-        run_test<StdArrayAllocator> (niter, c);
-    }
-    
-    {
-        std::cout << "For std::vector<double>: " << std::endl;
-        run_test<StdVectorAllocator> (niter, c);
-    }
-
 
 #ifdef USE_MPI
     MPI_Finalize();

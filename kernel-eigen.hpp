@@ -13,23 +13,27 @@ struct EigenVectorAllocator
 	static void deallocate_vector (TVector &v)
 	{ v.resize(0); }
 
+};
 
 
-	// Matrix stuff
+
+struct EigenMatrixVectorAllocator : public EigenVectorAllocator
+{
+	typedef EigenVectorAllocator::TVector TVector;
 	typedef Eigen::SparseMatrix<double> TMatrix;
-	static TMatrix* create_matrix(size_t n)
-	{
-		const size_t nrows = n*n;
-		TMatrix* mat = new TMatrix(nrows,nrows);
-		mat->reserve(Eigen::VectorXi::Constant(nrows,6));
-		// std::cout << "reserve done!" << std::endl;
 
-		init_5pt_matrix(*mat, n);
-		// std::cout << "init done!" << std::endl;
+	static TMatrix* create_matrix(size_t ncells)
+	{
+		const size_t nrows = ncells*ncells;
+		TMatrix* mat = new TMatrix(nrows,nrows);
+
+		mat->reserve(Eigen::VectorXi::Constant(nrows,6)); // std::cout << "reserve done!" << std::endl;
+		init_5pt_matrix(*mat, ncells); // std::cout << "init done!" << std::endl;
+
 		return mat;
 	}
 
-protected:
+
 	static size_t ijindex(size_t N, size_t i, size_t j)
 	{ return i*N+j; }
 
