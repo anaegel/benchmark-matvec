@@ -9,6 +9,7 @@
 #include <stdlib.h>     /* srand, rand */
 #include <math.h>
 #include <vector>
+#include <cstdlib>
 
 
 #undef GOOGLE_BENCHMARK
@@ -36,13 +37,12 @@ const int myAllocSize=64;
 #endif
 
 // CBLAS.
-#define USE_CBLAS
+#undef USE_CBLAS
 #ifdef USE_CBLAS
 #include "kernel-cblas.hpp"
 #endif
 
 // Intel MKL.
-#undef USE_MKL_BLAS
 #ifdef USE_MKL_BLAS
 #include "kernel-mkl.hpp"
 #endif
@@ -96,6 +96,12 @@ void PerformanceTestVector(V vec, size_t niter, size_t n, size_t block_size=1)
 
 }
 
+// Intel SYCL.
+#ifdef USE_SYCL
+#include "kernel-sycl.hpp"
+#endif
+
+
 // This is a performance test for all functions.
 template <typename TFunctions, typename TFixture>
 void PerformanceMV(const size_t nrep, TFixture &f, size_t block_size=1)
@@ -148,11 +154,19 @@ struct StdArrayAllocator
 	typedef double* TVector;
 
 	static void allocate_vector (size_t n, TVector &p)
-	{ p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));}
+	{ 
+        //p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
+        p = (double*) _aligned_malloc(n*sizeof(double), myAllocSize);
+        //p = (double*) _mm_alloc( n * sizeof(double), myAllocSize);
+    }
 	// { p = (double*) new(myAllocSize, n*sizeof(double));}
 
 	static void  deallocate_vector(TVector &p)
-	{ delete p;}
+	{ 
+        // delete p;
+        _aligned_free(p);
+        //_mm_free(p);
+    }
 };
 
 
@@ -179,6 +193,8 @@ void run_test(int niter, int c)
     Fixture<TAllocator, TVector> f(niter, NVECTOR, c);
     f.SetUp();
     
+    PerformanceTestVector<mysycl::mvops>(f.test, f.niter, f.n);
+
     std::cout << "Manual" << std::endl;
     PerformanceTestVector<classic::mvops>(f.test, f.niter, f.n);
         
@@ -187,10 +203,10 @@ void run_test(int niter, int c)
         
     std::cout << "OMP + SIMD" << std::endl;
     PerformanceTestVector<omp::mvops>(f.test,f.niter, f.n);
-        
+#ifdef USE_CBLAS     
     std::cout << "BLAS" << std::endl;
     PerformanceTestVector<mycblas::mvops>(f.test, f.niter, f.n);
-    
+#endif
 #ifdef USE_MKL_BLAS
     std::cout << "MKL" << std::endl;
     PerformanceTestVector<mymkl::mvops>(f.test,f.niter, f.n);
@@ -254,11 +270,11 @@ void run_test_ug4(int niter, int c)
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<2>> TAllocator2;
 	run_single_test_ug4<TAllocator2> (niter, c, 2);
 
-
+    /*
 	std::cout << "UG4-CPU4" << std::endl;
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<4>> TAllocator4;
 	run_single_test_ug4<TAllocator4> (niter, c, 4);
-
+    */
 
 }
 #endif
@@ -311,6 +327,16 @@ int main(int argc, char* argv[])
     std::srand(time(NULL));
     int c =atoi(argv[2]);
 
+    std::cout << "OMP_NUM_THREADS: " << omp_get_num_threads() << std::endl;
+    std::cout << "OMP_NUM_PROCS: " << omp_get_num_procs() << std::endl;
+    std::cout << "OMP_MAX_THREADS: " << omp_get_max_threads() << std::endl;
+
+#ifdef USE_SYCL
+    {
+        std::cout << "SYCL: " << std::endl;
+        run_test_sycl(niter, c);
+    }
+#endif
 
 
     {

@@ -8,10 +8,10 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Wall /ZI /DEBUG /Qxhost -O3" )
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set (CMAKE_CXX_STANDARD 17)
 
-message("Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 # set(CMAKE_CXX_FLAGS_RELEASE "-g -O0 --std=c++14")
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 --std=c++14 -march=native -framework Accelerate" )
 
@@ -19,18 +19,27 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	
 endif()
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+if (("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel") OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "IntelLLVM"))
 	set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xHost")
 endif()
 
 
+message("Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
+message("Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 
+
+set(MY_EXEC_NAME "test-${CMAKE_CXX_COMPILER_ID}")
+add_executable(${MY_EXEC_NAME} demo.cpp)
 
 ###############################
 # OpenMP (optional)
 ###############################
 find_package(OpenMP)
 
+find_package(MKL)
+if (MKL_FOUND)
+	add_compile_definitions(USE_MKL_BLAS)
+endif (MKL_FOUND)
 
 
 ###############################
@@ -45,7 +54,7 @@ message(STATUS "Found BLAS: ${BLAS_FOUND}")
 ###############################
 # Eigen3 (optional)
 ###############################
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+find_package (Eigen3 3.3 NO_MODULE)
 if(Eigen3_FOUND) 
  	message(STATUS "Found Eigen3:")
 	add_compile_definitions(-DUSE_EIGEN3)
@@ -56,11 +65,24 @@ endif(Eigen3_FOUND)
 ###############################
 if(DEFINED ENV{UG4_ROOT})
 	message(STATUS "Found UG4: $ENV{UG4_ROOT}")
-	add_compile_definitions(-DUSE_UG4)
+	add_compile_definitions(USE_UG4)
+	target_include_directories (${MY_EXEC_NAME} PUBLIC 
+	"$ENV{UG4_ROOT}/ugcore/ugbase" 
+	"$ENV{UG4_ROOT}/externals/BoostForUG4")
 else(DEFINED ENV{UG4_ROOT})
 	message(STATUS "UG4 not found.")
 endif(DEFINED ENV{UG4_ROOT})
 
+###############################
+# SYCL (experimental)
+###############################
+find_package(IntelSYCL REQUIRED)
+
+if(IntelSYCL_FOUND) 
+ 	message(STATUS "Found SYCL: ${IntelSYCL_FOUND}")
+	add_compile_definitions(USE_SYCL)
+	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
+endif(IntelSYCL_FOUND) 
 
 ###############################
 # Google benchmark (optional)
@@ -75,8 +97,7 @@ endif(benchmark_FOUND)
 
 
 
-set(MY_EXEC_NAME "test-${CMAKE_CXX_COMPILER_ID}")
-add_executable(${MY_EXEC_NAME} demo.cpp)
+
 
 
 
@@ -90,9 +111,7 @@ endif (BLAS_FOUND)
 
 
 
-target_include_directories (${MY_EXEC_NAME} PUBLIC 
-	"/Users/anaegel/Software/ug4-git/ugcore/ugbase" 
-	"/Users/anaegel/Software/ug4-git/externals/BoostForUG4")
+
 	
 #  link_directories("/Users/anaegel/Software/ug4-git/lib")
 
@@ -105,8 +124,9 @@ if(OpenMP_CXX_FOUND)
 		PUBLIC 
 		OpenMP::OpenMP_CXX 
 		${BLAS_LIBRARIES} 
-		Eigen3::Eigen 
-		BLAS::BLAS)
+		# Eigen3::Eigen 
+		#	BLAS::BLAS
+	)
 		# ug4) 
 endif()
 

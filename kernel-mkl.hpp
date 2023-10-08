@@ -8,7 +8,7 @@ struct MKLMemoryAllocator
 {
 	typedef double* TVector;
 
-	const int myAllocSize=64;
+	static const int myAllocSize=64;
 
 	static void allocate_vector   (size_t n, TVector &v)
 	{ v = (double*) mkl_malloc(n*sizeof(double), myAllocSize); }
