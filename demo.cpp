@@ -131,10 +131,6 @@ void PerformanceMV(const size_t nrep, TFixture &f, size_t block_size=1)
 	}
 
 	{	// 5. y += A*x
-
-
-
-
 		TIMERSTART(tmatmul);
 		for (size_t i=0; i<nrep; ++i)
 		{ TFunctions::matmul_add(f.n, f.b, *(f.A), f.x); }
@@ -155,16 +151,23 @@ struct StdArrayAllocator
 
 	static void allocate_vector (size_t n, TVector &p)
 	{ 
-        //p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
-        p = (double*) _aligned_malloc(n*sizeof(double), myAllocSize);
+        #ifdef _WIN32
+            p = (double*) _aligned_malloc(n*sizeof(double), myAllocSize);
+        #else 
+            p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
+        #endif
         //p = (double*) _mm_alloc( n * sizeof(double), myAllocSize);
     }
 	// { p = (double*) new(myAllocSize, n*sizeof(double));}
 
 	static void  deallocate_vector(TVector &p)
 	{ 
-        // delete p;
-        _aligned_free(p);
+         #ifdef _WIN32
+             _aligned_free(p);
+        #else 
+            free(p);
+        #endif
+       
         //_mm_free(p);
     }
 };
@@ -191,9 +194,7 @@ template <typename TAllocator, typename TVector=typename TAllocator::TVector>
 void run_test(int niter, int c)
 {
     Fixture<TAllocator, TVector> f(niter, NVECTOR, c);
-    f.SetUp();
-    
-    PerformanceTestVector<mysycl::mvops>(f.test, f.niter, f.n);
+    f.SetUp();    
 
     std::cout << "Manual" << std::endl;
     PerformanceTestVector<classic::mvops>(f.test, f.niter, f.n);
@@ -338,7 +339,6 @@ int main(int argc, char* argv[])
     }
 #endif
 
-
     {
         std::cout << "For double* " << std::endl;
         run_test<StdArrayAllocator> (niter, c);
@@ -355,7 +355,6 @@ int main(int argc, char* argv[])
         run_test_eigen3(niter, c);
     }
 #endif
-    
 
 #ifdef USE_UG4
     {

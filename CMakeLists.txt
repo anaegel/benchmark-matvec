@@ -8,12 +8,12 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall /ZI /DEBUG /Qxhost -O3" )
+# set(CMAKE_CXX_FLAGS "-Wall /ZI /DEBUG /Qxhost -O3" )
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set (CMAKE_CXX_STANDARD 17)
 
 # set(CMAKE_CXX_FLAGS_RELEASE "-g -O0 --std=c++14")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 --std=c++14 -march=native -framework Accelerate" )
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native -framework Accelerate" )
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	
@@ -56,8 +56,8 @@ message(STATUS "Found BLAS: ${BLAS_FOUND}")
 ###############################
 find_package (Eigen3 3.3 NO_MODULE)
 if(Eigen3_FOUND) 
- 	message(STATUS "Found Eigen3:")
-	add_compile_definitions(-DUSE_EIGEN3)
+ 	message(STATUS "Found Eigen3: ${Eigen3_FOUND}")
+	add_compile_definitions(USE_EIGEN3)
 endif(Eigen3_FOUND) 
 
 ###############################
@@ -76,13 +76,29 @@ endif(DEFINED ENV{UG4_ROOT})
 ###############################
 # SYCL (experimental)
 ###############################
-find_package(IntelSYCL REQUIRED)
-
+find_package(IntelSYCL)
 if(IntelSYCL_FOUND) 
- 	message(STATUS "Found SYCL: ${IntelSYCL_FOUND}")
+ 	message(STATUS "Found Intel-SYCL: ${IntelSYCL_FOUND}")
 	add_compile_definitions(USE_SYCL)
 	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
 endif(IntelSYCL_FOUND) 
+
+
+find_package(AdaptiveCPP)
+if(AdaptiveCPP_FOUND) 
+ 	message(STATUS "Found Adaptive-CPP-SYCL: ${AdaptiveCPP_FOUND}")
+	add_compile_definitions(USE_SYCL)
+	cmake_policy(SET CMP0005 NEW)
+	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
+endif(AdaptiveCPP_FOUND) 
+
+
+if (DEFINED RAJA_DIR)
+  find_package(RAJA REQUIRED)
+  # blt_print_target_properties(TARGET RAJA)
+  add_compile_definitions(USE_RAJA)
+endif ()
+
 
 ###############################
 # Google benchmark (optional)
@@ -99,8 +115,9 @@ endif(benchmark_FOUND)
 
 
 
-
-
+###############################
+# BLAS
+###############################
 
 if (BLAS_FOUND)
    set(HAS_BLAS "USE_BLAS")
@@ -124,9 +141,10 @@ if(OpenMP_CXX_FOUND)
 		PUBLIC 
 		OpenMP::OpenMP_CXX 
 		${BLAS_LIBRARIES} 
-		# Eigen3::Eigen 
+		Eigen3::Eigen 
 		#	BLAS::BLAS
 	)
 		# ug4) 
+	
 endif()
 
