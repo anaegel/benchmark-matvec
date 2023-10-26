@@ -36,3 +36,5 @@ OMP_NUM_THREADS=1 ./test-XYZ
 | Plain         | x   | x     | x    |        |         |
 | SIMD          | x   | x     | x    |        |         |
 | SIMD + OpenMP | x   | x     | x    |        |         |
+| USE_UG4       | x   | x     | x    | x      | x       |
+| USE_EIGEN3    | x   | x     | x    | x      | x       |
