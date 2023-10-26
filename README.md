@@ -31,3 +31,6 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 ```
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
+| Setup | dot | norm2 | axpy | matmul | matmulp |
+|-------|-----|-------|------|--------|---------|
+| Plain | x   |       |      |        |         |
