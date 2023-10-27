@@ -33,6 +33,11 @@ Most compilers support multithreading using OpenMP. To include this in the tests
 OMP_NUM_THREADS=1 ./test-XYZ 3 0.1
 ```
 
+OpenMP support is activated by 
+```
+#define USE_OPENMP
+```
+and should be detected in the build process automatically.
 
 ##  Testing BLAS libraries
 BLAS libraries are activated by 
