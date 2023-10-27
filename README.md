@@ -1,4 +1,4 @@
-** Entwurf einer Testsuite 
+# Entwurf einer Testsuite 
 
 
 [![Test Coverage](https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/test_coverage)](https://codeclimate.com/github/anaegel/benchmark-matvec/test_coverage)
@@ -31,6 +31,9 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 ```
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
+
+##  Implementation status
+
 | Setup         | dot | norm2 | axpy | matmul | matmul_tranpose |
 |---------------|-----|-------|------|--------|-----------------|
 | Plain         | x   | x     | x    |        |                 |
