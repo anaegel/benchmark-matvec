@@ -1,9 +1,12 @@
 #pragma once
 
-// Apple CBLAS.
-#include <vecLib/vecLib.h>
+#ifdef __APPLE__
+#include <vecLib/vecLib.h>	// Apple CBLAS.
+#else
+#include <cblas.h>
+#endif
 
-#define USE_CBLAS
+
 #ifdef USE_CBLAS
 // CBLAS
 namespace mycblas {

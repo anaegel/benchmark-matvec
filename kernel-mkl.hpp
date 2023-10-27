@@ -23,22 +23,25 @@ struct MKLMemoryAllocator
 namespace mymkl {
 
     struct mvops {
-    	static const int one = 1;
+    	static const MKL_INT one=1;
         template <class TVector>
-        static double dot(const int N, const TVector &x, const TVector &y)
+        static double dot(const int n, const TVector &x, const TVector &y)
         {
+        	MKL_INT N=n;
             return ddot(&N, &x[0], &one, &y[0], &one);
         }
 
         template <class TVector>
-        static double norm2(const int N, const TVector &x)
+        static double norm2(const int n, const TVector &x)
         {
+        	MKL_INT N=n;
             return ddot(&N, &x[0], &one, &x[0], &one);
         }
 
         template <class TVector>
-        static void axpy(const int N, double alpha, const TVector &x, TVector &y)
+        static void axpy(const int n, double alpha, const TVector &x, TVector &y)
         {
+        	MKL_INT N=n;
             daxpy(&N, &alpha, &x[0], &one, &y[0], &one);
         }
     };
