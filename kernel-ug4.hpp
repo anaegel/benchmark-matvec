@@ -157,8 +157,12 @@ struct mvops {
 
 
     template <class TVector, class TMatrix>
-    static void matmul_set(const int N, TVector &y, const TMatrix &A, const TVector &x)
+    static void matmul(const int N, TVector &y, const TMatrix &A, const TVector &x)
     { A.axpy(y, 0.0, y, 1.0, x); }
+
+    template <class TVector, class TMatrix>
+    static void matmul_transposed(const int N, TVector &y, const TMatrix &A, const TVector &x)
+     { A.apply_transposed(y,x); }
 
     template <class TVector, class TMatrix>
     static void matmul_add(const int N, TVector &y, const TMatrix &A, const TVector &x)
