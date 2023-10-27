@@ -55,11 +55,11 @@ The MKL-provided linear algebra is activated by
 This is included in the cmake build process. However, no additional BLAS should be tested.
 
 ##  Testing Eigen3
-The linear algebra of Eigen3 is included, if
+The linear algebra of Eigen3 is activated by
 ```
 #define USE_EIGEN3
 ```
-is activated. If Eigen3 has been found in the cmake build process, this is done automatically.
+If Eigen3 is installed, this should be detected automatically by the cmake build process.
 
 ##  Testing UG4
 The module allows to test the linear algebra provided by UG4, if 
