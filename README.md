@@ -43,3 +43,4 @@ OMP_NUM_THREADS=1 ./test-XYZ
 | USE_MKL       | x   | x     | x    |        |                 |
 | USE_UG4       | x   | x     | x    | x      | x               |
 | USE_EIGEN3    | x   | x     | x    | x      | x               |
+| USE_SYCL      | exp | exp   | exp  |        |                 |
