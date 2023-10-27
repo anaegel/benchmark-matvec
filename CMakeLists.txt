@@ -8,13 +8,28 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# set(CMAKE_CXX_FLAGS "-Wall /ZI /DEBUG /Qxhost -O3" )
+
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set (CMAKE_CXX_STANDARD 17)
 
 # set(CMAKE_CXX_FLAGS_RELEASE "-g -O0 --std=c++14")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native -framework Accelerate" )
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++14")
 
+###################################
+# System specific Options.
+###################################
+if(APPLE)
+	ADD_COMPILE_OPTIONS(-framework Accelerate -DACCELERATE_NEW_LAPACK)
+endif (APPLE)
+
+IF (WIN32)
+	ADD_COMPILE_OPTIONS("-Wall /ZI /DEBUG /Qxhost -O3" )
+ENDIF (WIN32)
+
+
+###################################
+# Compiler specific Options.
+###################################
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	
 endif()
@@ -23,33 +38,69 @@ if (("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel") OR ("${CMAKE_CXX_COMPILER_ID}"
 	set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xHost")
 endif()
 
-
+###################################
+# Status
+###################################
+message("System: ${CMAKE_SYSTEM_NAME}")
 message("Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 message("Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 
-
+###################################
+# Define executable
+###################################
 set(MY_EXEC_NAME "test-${CMAKE_CXX_COMPILER_ID}")
 add_executable(${MY_EXEC_NAME} demo.cpp)
 
 ###############################
-# OpenMP (optional)
+# OpenMP 
 ###############################
-find_package(OpenMP)
-
-find_package(MKL)
-if (MKL_FOUND)
-	add_compile_definitions(USE_MKL_BLAS)
-endif (MKL_FOUND)
-
+find_package(OpenMP REQUIRED)
+if (OpenMP_FOUND)
+	message(STATUS "Found OpenMP!")
+	add_compile_definitions(USE_OPENMP)
+	target_link_libraries(${MY_EXEC_NAME} PUBLIC OpenMP::OpenMP_CXX)
+endif (OpenMP_FOUND)
 
 ###############################
-# BLAS
+# BLAS (optional).
 ###############################
 # set(BLA_VENDOR Intel)
+
+message(STATUS "Checking BLAS (select version using BLA_VENDOR=${BLA_VENDOR})...")
 find_package(BLAS)
-message(STATUS "Found BLAS: ${BLAS_FOUND}")
+
+if (BLAS_FOUND)
+   message(STATUS "Found BLAS: ${BLAS_LIBRARIES}, ${BLAS_LINKER_FLAGS}")
+   message(STATUS "Info: Using BLAS (Include: ${BLAS_INCLUDE_DIR}, Lib: ${BLAS_LIBRARIES})")	
+   IF (APPLE)
+   	  add_compile_definitions(USE_CBLAS)
+   ELSE (APPLE)
+  	  add_compile_definitions(USE_BLAS)
+   ENDIF (APPLE)	
+   
+   target_link_libraries(${MY_EXEC_NAME} PUBLIC ${BLAS_LIBRARIES} BLAS::BLAS)  
+else (BLAS_FOUND)
+	message(STATUS "BLAS not found!")
+endif (BLAS_FOUND)
 
 
+###############################
+# MKL (optional)
+###############################
+if (NOT BLAS_FOUND)
+message(STATUS "Checking for Intel MKL...")
+find_package(MKL)
+if (MKL_FOUND)
+	message(STATUS "...found!")
+	add_compile_definitions(USE_MKL_BLAS)
+	add_compile_options($<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+	target_include_directories (${MY_EXEC_NAME} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+	target_link_libraries(${MY_EXEC_NAME} PUBLIC $<LINK_ONLY:MKL::MKL>)
+else (MKL_FOUND)
+
+endif (MKL_FOUND)
+message(STATUS "... not found!")
+endif (NOT BLAS_FOUND)
 
 ###############################
 # Eigen3 (optional)
@@ -58,6 +109,7 @@ find_package (Eigen3 3.3 NO_MODULE)
 if(Eigen3_FOUND) 
  	message(STATUS "Found Eigen3: ${Eigen3_FOUND}")
 	add_compile_definitions(USE_EIGEN3)
+	target_link_libraries(${MY_EXEC_NAME} PUBLIC Eigen3::Eigen)
 endif(Eigen3_FOUND) 
 
 ###############################
@@ -106,45 +158,14 @@ endif ()
 find_package(benchmark)
 message(STATUS "Found Google benchmark: ${benchmark_FOUND}")
 if(benchmark_FOUND) 
- 	
 	add_compile_definitions(-DUSE_GOOGLE_BENCHMARK)
 endif(benchmark_FOUND) 
 
 
 
-
-
-
-###############################
-# BLAS
-###############################
-
-if (BLAS_FOUND)
-   set(HAS_BLAS "USE_BLAS")
-   # set(HAS_MKL_BLAS "USE_MKL_BLAS")
-   message(STATUS "Found BLAS: ${BLAS_LIBRARIES}, ${BLAS_LINKER_FLAGS}")
-   message(STATUS "Info: Using BLAS (Include: ${BLAS_INCLUDE_DIR}, Lib: ${BLAS_LIBRARIES})")	
-endif (BLAS_FOUND)
-
-
-
-
-	
-#  link_directories("/Users/anaegel/Software/ug4-git/lib")
-
-
-
-if(OpenMP_CXX_FOUND)
+# if(OpenMP_CXX_FOUND)
 	target_compile_definitions(${MY_EXEC_NAME} PUBLIC ${HAS_BLAS} ${HAS_MKL_BLAS})
-	target_compile_options(${MY_EXEC_NAME} PUBLIC -flax-vector-conversions)
-	target_link_libraries(${MY_EXEC_NAME} 
-		PUBLIC 
-		OpenMP::OpenMP_CXX 
-		${BLAS_LIBRARIES} 
-		Eigen3::Eigen 
-		#	BLAS::BLAS
-	)
-		# ug4) 
-	
-endif()
+	target_compile_options(${MY_EXEC_NAME} PUBLIC -flax-vector-conversions ${MyCompileOptions})
+
+# endif()
 

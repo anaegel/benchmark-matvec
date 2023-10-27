@@ -1,6 +1,8 @@
 #pragma once
 
-
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 // Klassische Routinen.
 namespace classic {

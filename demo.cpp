@@ -2,7 +2,6 @@
 // (c) G-CSC, Uni Frankfurt, Winter 2021/22.
 
 // Stdlib.
-#include <omp.h>
 #include <chrono>
 #include <iostream>
 #include <time.h>       /* time */
@@ -42,9 +41,23 @@ const int myAllocSize=64;
 #include "kernel-cblas.hpp"
 #endif
 
+// BLAS.
+#ifdef USE_BLAS
+#include "kernel-blas.hpp"
+#endif
+
+
 // Intel MKL.
 #ifdef USE_MKL_BLAS
 #include "kernel-mkl.hpp"
+// const int mymkl::mvops::one = 1;
+#endif
+
+
+// SYCL.
+#undef USE_SYCL
+#ifdef USE_SYCL
+#include "kernel-sycl.hpp"
 #endif
 
 
@@ -54,10 +67,31 @@ const int myAllocSize=64;
 #define NCELLS 2000
 #define NVECTOR 40000000
 
+////////////////////////////////////////////////
+// BLAS - Level 2
+////////////////////////////////////////////////
+
+// Unit tests.
+template <typename F, typename V>
+void UnitTest_BLAS_Level1(V vec, size_t niter, size_t n, size_t block_size=1)
+{
+	{
+
+		for (size_t i=0; i<n; ++i) { vec[0][i] = 1.0; vec[1][i] = 0.0;}
+		std::cout << "Level 1 - UnitTest: "
+				  <<  F::dot(n, vec[0], vec[1]) << ", "
+				  <<  F::norm2(n, vec[0]) << ", ";
+
+		F::axpy(n, 2.0, vec[0], vec[1]);
+
+		std::cout <<  F::norm2(n, vec[1]) << std::endl;
+
+	}
+}
 
 // This is a performance test for all functions.
 template <typename F, typename V>
-void PerformanceTestVector(V vec, size_t niter, size_t n, size_t block_size=1)
+void PerfTest_BLAS_Level1(V vec, size_t niter, size_t n, size_t block_size=1)
 {
    const size_t nentries = NVECTOR*block_size;
     /* 1. dot */
@@ -96,15 +130,37 @@ void PerformanceTestVector(V vec, size_t niter, size_t n, size_t block_size=1)
 
 }
 
-// Intel SYCL.
-#ifdef USE_SYCL
-#include "kernel-sycl.hpp"
-#endif
+////////////////////////////////////////////////
+// BLAS - Level 2
+////////////////////////////////////////////////
+
+// This is a performance test for all functions.
+template <typename TFunctions, typename TFixture>
+void UnitTest_BLAS_Level2(const size_t nrep, TFixture &f, size_t block_size=1)
+{
+
+	std::cout << "Level 2 - Unit Test: ";
+	{
+		for (size_t i=0; i<f.n; ++i) { f.x[i] = 1.0; }
+		TFunctions::matmul(f.n, f.b, *(f.A), f.x);
+		double val = TFunctions::norm2(f.n, f.b);
+		std::cout << val/f.n << ", ";
+	}
+
+	{
+		for (size_t i=0; i<f.n; ++i) { f.x[i] = 1.0; }
+		TFunctions::matmul_transposed(f.n, f.b, *(f.A), f.x);
+		double val = TFunctions::norm2(f.n, f.b);
+		std::cout << val/f.n;
+	}
+	std::cout <<  std::endl;
+
+}
 
 
 // This is a performance test for all functions.
 template <typename TFunctions, typename TFixture>
-void PerformanceMV(const size_t nrep, TFixture &f, size_t block_size=1)
+void PerfTest_BLAS_Level2(const size_t nrep, TFixture &f, size_t block_size=1)
 {
 	const size_t NSTENCIL = 5;
 	const size_t nvector = f.n;
@@ -116,18 +172,26 @@ void PerformanceMV(const size_t nrep, TFixture &f, size_t block_size=1)
 
 	// For each block row, we must collect (m^2 * NSTENCIL) matrix entries and 2*m vector entries
 	const size_t mem_cnt_per_row = sizeof(double) *   // for each block_row:
-			( block_size*block_size*NSTENCIL + 2* block_size);  //
+			( m2*NSTENCIL + 2* block_size);  //
 
 	{	// 4. y = A*x
-		const size_t flop_cnt = (NSTENCIL+1)*nvector;
-		const size_t mem_cnt = (NSTENCIL+1)*nvector*sizeof(double);  // each m^2
 
 		TIMERSTART(tmatmul);
 		for (size_t i=0; i<nrep; ++i)
-		{ TFunctions::matmul_set(f.n, f.b, *(f.A), f.x); }
+		{ TFunctions::matmul(f.n, f.b, *(f.A), f.x); }
 
 		TIMERSTOP(tmatmul, nrep*flop_cnt_per_row*nvector, nrep*mem_cnt_per_row*nvector);
 		std::cout << " for matmul (" << nrep <<" products)"<< std::endl;
+	}
+
+	{	// 4. y = A^T*x
+
+			TIMERSTART(tmatmul);
+			for (size_t i=0; i<nrep; ++i)
+			{ TFunctions::matmul_transposed(f.n, f.b, *(f.A), f.x); }
+
+			TIMERSTOP(tmatmul, nrep*flop_cnt_per_row*nvector, nrep*mem_cnt_per_row*nvector);
+			std::cout << " for matmul_transposed (" << nrep <<" products)"<< std::endl;
 	}
 
 	{	// 5. y += A*x
@@ -151,14 +215,16 @@ struct StdArrayAllocator
 
 	static void allocate_vector (size_t n, TVector &p)
 	{ 
+
         #ifdef _WIN32
             p = (double*) _aligned_malloc(n*sizeof(double), myAllocSize);
         #else 
-            p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
+           p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
+           // p = new double[n];
         #endif
         //p = (double*) _mm_alloc( n * sizeof(double), myAllocSize);
     }
-	// { p = (double*) new(myAllocSize, n*sizeof(double));}
+
 
 	static void  deallocate_vector(TVector &p)
 	{ 
@@ -166,6 +232,7 @@ struct StdArrayAllocator
              _aligned_free(p);
         #else 
             free(p);
+            // delete p;
         #endif
        
         //_mm_free(p);
@@ -188,7 +255,9 @@ struct StdVectorAllocator
 
 
 
-
+////////////////////////////////////////////////
+// General test suite.
+////////////////////////////////////////////////
 
 template <typename TAllocator, typename TVector=typename TAllocator::TVector>
 void run_test(int niter, int c)
@@ -197,25 +266,59 @@ void run_test(int niter, int c)
     f.SetUp();    
 
     std::cout << "Manual" << std::endl;
-    PerformanceTestVector<classic::mvops>(f.test, f.niter, f.n);
-        
+    UnitTest_BLAS_Level1<classic::mvops>(f.test, f.niter, f.n);
+    PerfTest_BLAS_Level1<classic::mvops>(f.test, f.niter, f.n);
+
+    #ifdef USE_OPENMP
     std::cout << "SIMD" << std::endl;
-    PerformanceTestVector<simd::mvops>(f.test,f.niter, f.n);
+    UnitTest_BLAS_Level1<simd::mvops>(f.test, f.niter, f.n);
+    PerfTest_BLAS_Level1<simd::mvops>(f.test, f.niter, f.n);
         
     std::cout << "OMP + SIMD" << std::endl;
-    PerformanceTestVector<omp::mvops>(f.test,f.niter, f.n);
-#ifdef USE_CBLAS     
+    UnitTest_BLAS_Level1<omp::mvops>(f.test, f.niter, f.n);
+    PerfTest_BLAS_Level1<omp::mvops>(f.test, f.niter, f.n);
+#endif
+
+#ifdef USE_BLAS
     std::cout << "BLAS" << std::endl;
-    PerformanceTestVector<mycblas::mvops>(f.test, f.niter, f.n);
+    PerfTest_BLAS_Level1<myblas::mvops>(f.test,f.niter, f.n);
 #endif
-#ifdef USE_MKL_BLAS
-    std::cout << "MKL" << std::endl;
-    PerformanceTestVector<mymkl::mvops>(f.test,f.niter, f.n);
+
+#ifdef USE_CBLAS
+    std::cout << "CBLAS" << std::endl;
+    UnitTest_BLAS_Level1<mycblas::mvops>(f.test, f.niter, f.n);
+    PerfTest_BLAS_Level1<mycblas::mvops>(f.test, f.niter, f.n);
 #endif
-    
+
     f.TearDown();
 
 }
+
+////////////////////////////////////////////////
+// Tests for MKL.
+////////////////////////////////////////////////
+
+#ifdef USE_MKL_BLAS
+void run_test_mkl(int niter, int c)
+{
+	std::cout << "MKL-BLAS" << std::endl;
+
+	typedef double* mkl_vector;
+    Fixture<MKLMemoryAllocator> f(niter, NVECTOR, c);
+
+    f.SetUp();
+    UnitTest_BLAS_Level1<mymkl::mvops>(f.test,f.niter, f.n);
+    PerfTest_BLAS_Level1<mymkl::mvops>(f.test,f.niter, f.n);
+    f.TearDown();
+
+}
+#endif
+
+
+
+////////////////////////////////////////////////
+// Tests for Eigen3.
+////////////////////////////////////////////////
 
 #ifdef USE_EIGEN3
 void run_test_eigen3(int niter, int c)
@@ -227,19 +330,25 @@ void run_test_eigen3(int niter, int c)
 		// Vector tests
 		Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR, c);
 		f.SetUp();
-		PerformanceTestVector<myeigen::mvops>(f.test,f.niter, f.n);
+		UnitTest_BLAS_Level1<myeigen::mvops>(f.test,f.niter, f.n);
+		PerfTest_BLAS_Level1<myeigen::mvops>(f.test,f.niter, f.n);
 		f.TearDown();
 
-		// Matix-vector tests
+		// Matrix-vector tests
     	MatrixVectorFixture<EigenMatrixVectorAllocator> fdata(NCELLS);
     	fdata.SetUp();
-    	PerformanceMV<myeigen::mvops>(50*niter, fdata);
+    	UnitTest_BLAS_Level2<myeigen::mvops>(50*niter, fdata);
+    	PerfTest_BLAS_Level2<myeigen::mvops>(50*niter, fdata);
     	fdata.TearDown();
 	}
 
 }
 #endif
 
+
+////////////////////////////////////////////////
+// Tests for UG4.
+////////////////////////////////////////////////
 
 #ifdef USE_UG4
 
@@ -248,12 +357,14 @@ void run_single_test_ug4(int niter, int c, size_t block_size=1)
 {
 	Fixture<TAllocator> f(niter, NVECTOR, c);
 	f.SetUp();
-	PerformanceTestVector<myug4::mvops>(f.test,f.niter, f.n, block_size);
+	UnitTest_BLAS_Level1<myug4::mvops>(f.test,f.niter, f.n, block_size);
+	PerfTest_BLAS_Level1<myug4::mvops>(f.test,f.niter, f.n, block_size);
 	f.TearDown();
 
 	MatrixVectorFixture<TAllocator> fdata(NCELLS);
 	fdata.SetUp();
-	PerformanceMV<myug4::mvops>(50*niter, fdata, block_size);
+	UnitTest_BLAS_Level2<myug4::mvops>(50*niter, fdata, block_size);
+	PerfTest_BLAS_Level2<myug4::mvops>(50*niter, fdata, block_size);
 	fdata.TearDown();
 
 }
@@ -271,12 +382,28 @@ void run_test_ug4(int niter, int c)
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<2>> TAllocator2;
 	run_single_test_ug4<TAllocator2> (niter, c, 2);
 
-    /*
+	std::cout << "UG4-CPU3" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<3>> TAllocator3;
+	run_single_test_ug4<TAllocator3> (niter, c, 3);
+
 	std::cout << "UG4-CPU4" << std::endl;
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<4>> TAllocator4;
 	run_single_test_ug4<TAllocator4> (niter, c, 4);
-    */
 
+	std::cout << "UG4-CPU8" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<8>> TAllocator8;
+	run_single_test_ug4<TAllocator8> (niter, c, 8);
+
+/*
+	std::cout << "UG4-CPU10" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<10>> TAllocator10;
+	run_single_test_ug4<TAllocator10> (niter, c, 10);
+
+	std::cout << "UG4-CPU16" << std::endl;
+	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<16>> TAllocator16;
+	run_single_test_ug4<TAllocator16> (niter, c, 16);
+
+*/
 }
 #endif
 
