@@ -1,10 +1,10 @@
-** Entwurf einer Testsuite 
+# Entwurf einer Testsuite 
 
 
 [![Test Coverage](https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/test_coverage)](https://codeclimate.com/github/anaegel/benchmark-matvec/test_coverage)
 
-Modellierung und Simulation 2 - Winter 2021/22
-(c) G-CSC, Uni Frankfurt
+Modellierung und Simulation 2
+(c) Arne Naegel, Goethe University Frankfurt 
 
 Aufruf:
 
@@ -31,11 +31,55 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 ```
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
-| Setup         | dot | norm2 | axpy | matmul | matmulp |
-|---------------|-----|-------|------|--------|---------|
-| Plain         | x   | x     | x    |        |         |
-| SIMD          | x   | x     | x    |        |         |
-| SIMD + OpenMP | x   | x     | x    |        |         |
-| USE_CBLAS     | x   | x     | x    |        |         |
-| USE_UG4       | x   | x     | x    | x      | x       |
-| USE_EIGEN3    | x   | x     | x    | x      | x       |
+
+
+
+##  Testing BLAS libraried
+BLAS libraries are activated by 
+```
+#define USE_BLAS
+#define USE_CBLAS
+```
+This is included in the cmake build process. 
+
+##  Testing MKL
+The MKL-provided linear algebra is activated by 
+```
+#define USE_MKL_BLAS
+```
+This is included in the cmake build process. However, no additional BLAS should be tested.
+
+##  Testing Eigen3
+The linear algebra of Eigen3 is included, if
+```
+#define USE_EIGEN3
+```
+is activated. If Eigen3 has been found in the cmake build process, this is done automatically.
+
+##  Testing UG4
+The module allows to test the linear algebra provided by UG4, if 
+```
+#define USE_UG4
+```
+is activated. This is done if, if UG4 is found in the path provided by the environment variable *UG4_ROOT*. 
+
+
+If UG4 has not been installed:
+* Download UG4 to a separate directory.
+* Set 'UG4_ROOT' environment variable.
+
+In any case, you should enable experimental OpenMP-features:
+* Switch to 'feature-openmp' feature branch.
+  
+##  Implementation status
+
+| Setup         | dot | norm2 | axpy | matmul | matmul_tranpose | Requirements   |
+|---------------|-----|-------|------|--------|-----------------|----------------|
+| Plain         | x   | x     | x    |        |                 |                |
+| SIMD          | x   | x     | x    |        |                 | OpenMP compiler|
+| SIMD + OpenMP | x   | x     | x    |        |                 | OpenMP compiler|
+| USE_CBLAS     | x   | x     | x    |        |                 |                |
+| USE_MKL       | x   | x     | x    |        |                 |                |
+| USE_UG4       | x   | x     | x    | x      | x               | UG4            |
+| USE_EIGEN3    | x   | x     | x    | x      | x               | Eigen3         |
+| USE_SYCL      | exp | exp   | exp  |        |                 |                |
