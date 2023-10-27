@@ -33,7 +33,8 @@ OMP_NUM_THREADS=1 ./test-XYZ
 ```
 
 ##  USE_UG4
-The module allows to test the linear algebra provided by UG4.
+TThe module allows to test the linear algebra provided by UG4. In this case the option *USE_UG4* will be activated. This is done if, if UG4 is found in the path provided by the environment variable *UG4_ROOT*. 
+
 
 If UG4 has not been installed:
 * Download UG4 to a separate directory.
@@ -45,13 +46,13 @@ In any case, you should enable experimental OpenMP-features:
 
 ##  Implementation status
 
-| Setup         | dot | norm2 | axpy | matmul | matmul_tranpose |
-|---------------|-----|-------|------|--------|-----------------|
-| Plain         | x   | x     | x    |        |                 |
-| SIMD          | x   | x     | x    |        |                 |
-| SIMD + OpenMP | x   | x     | x    |        |                 |
-| USE_CBLAS     | x   | x     | x    |        |                 |
-| USE_MKL       | x   | x     | x    |        |                 |
-| USE_UG4       | x   | x     | x    | x      | x               |
-| USE_EIGEN3    | x   | x     | x    | x      | x               |
-| USE_SYCL      | exp | exp   | exp  |        |                 |
+| Setup         | dot | norm2 | axpy | matmul | matmul_tranpose | Requirements   |
+|---------------|-----|-------|------|--------|-----------------|----------------|
+| Plain         | x   | x     | x    |        |                 |                |
+| SIMD          | x   | x     | x    |        |                 | OpenMP compiler|
+| SIMD + OpenMP | x   | x     | x    |        |                 | OpenMP compiler|
+| USE_CBLAS     | x   | x     | x    |        |                 |                |
+| USE_MKL       | x   | x     | x    |        |                 |                |
+| USE_UG4       | x   | x     | x    | x      | x               | UG4            |
+| USE_EIGEN3    | x   | x     | x    | x      | x               | Eigen3         |
+| USE_SYCL      | exp | exp   | exp  |        |                 |                |
