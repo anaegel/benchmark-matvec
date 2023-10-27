@@ -32,7 +32,14 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
 
-##  Using UG4
+##  Including Eigen3
+The linear algebra of Eigen3 is included, if
+```
+#define USE_EIGEN3
+```
+is activated. If Eigen3 has been found in the cmake build process, this is done automatically.
+
+##  Including UG4
 The module allows to test the linear algebra provided by UG4, if 
 ```
 #define USE_UG4
