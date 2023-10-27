@@ -32,6 +32,17 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
 
+##  USE_UG4
+The module allows to test the linear algebra provided by UG4.
+
+If UG4 has not been installed:
+* Download UG4 to a separate directory.
+* Set 'UG4_ROOT' environment variable.
+
+In any case, you should enable experimental OpenMP-features:
+* Switch to 'feature-openmp' feature branch.
+
+
 ##  Implementation status
 
 | Setup         | dot | norm2 | axpy | matmul | matmul_tranpose |
