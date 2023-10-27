@@ -32,14 +32,31 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
 
-##  Including Eigen3
+
+
+##  Testing BLAS libraried
+BLAS libraries are activated by 
+```
+#define USE_BLAS
+#define USE_CBLAS
+```
+This is included in the cmake build process. 
+
+##  Testing MKL
+The MKL-provided linear algebra is activated by 
+```
+#define USE_MKL_BLAS
+```
+This is included in the cmake build process. However, no additional BLAS should be tested.
+
+##  Testing Eigen3
 The linear algebra of Eigen3 is included, if
 ```
 #define USE_EIGEN3
 ```
 is activated. If Eigen3 has been found in the cmake build process, this is done automatically.
 
-##  Including UG4
+##  Testing UG4
 The module allows to test the linear algebra provided by UG4, if 
 ```
 #define USE_UG4
@@ -53,8 +70,7 @@ If UG4 has not been installed:
 
 In any case, you should enable experimental OpenMP-features:
 * Switch to 'feature-openmp' feature branch.
-
-
+  
 ##  Implementation status
 
 | Setup         | dot | norm2 | axpy | matmul | matmul_tranpose | Requirements   |
