@@ -23,33 +23,33 @@ const int myAllocSize=64;
 #include "fixture-metas.hpp"
 
 // Default kernel.
-#include "kernel-default.hpp"
+#include "kernels/kernel-default.hpp"
 
 // Eigen3.
 #ifdef USE_EIGEN3
-#include "kernel-eigen.hpp"
+#include "kernels/kernel-eigen.hpp"
 #endif
 
 // UG4.
 #ifdef USE_UG4
-#include "kernel-ug4.hpp"
+#include "kernels/kernel-ug4.hpp"
 #endif
 
 // CBLAS.
 #undef USE_CBLAS
 #ifdef USE_CBLAS
-#include "kernel-cblas.hpp"
+#include "kernels/kernel-cblas.hpp"
 #endif
 
 // BLAS.
 #ifdef USE_BLAS
-#include "kernel-blas.hpp"
+#include "kernels/kernel-blas.hpp"
 #endif
 
 
 // Intel MKL.
 #ifdef USE_MKL_BLAS
-#include "kernel-mkl.hpp"
+#include "kernels/kernel-mkl.hpp"
 // const int mymkl::mvops::one = 1;
 #endif
 
@@ -57,7 +57,7 @@ const int myAllocSize=64;
 // SYCL.
 #undef USE_SYCL
 #ifdef USE_SYCL
-#include "kernel-sycl.hpp"
+#include "kernels/kernel-sycl.hpp"
 #endif
 
 
@@ -269,7 +269,7 @@ void run_test(int niter, int c)
     UnitTest_BLAS_Level1<classic::mvops>(f.test, f.niter, f.n);
     PerfTest_BLAS_Level1<classic::mvops>(f.test, f.niter, f.n);
 
-    #ifdef USE_OPENMP
+ #ifdef USE_OPENMP
     std::cout << "SIMD" << std::endl;
     UnitTest_BLAS_Level1<simd::mvops>(f.test, f.niter, f.n);
     PerfTest_BLAS_Level1<simd::mvops>(f.test, f.niter, f.n);
