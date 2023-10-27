@@ -73,8 +73,11 @@ If UG4 has not been installed:
 * Download UG4 to a separate directory.
 * Set 'UG4_ROOT' environment variable.
 
-In any case, you should enable experimental OpenMP-features:
-* Switch to 'feature-openmp' feature branch.
+In any case, you should enable the experimental feature of the 'feature-openmp' branch:
+```
+cd $UG4_ROOT
+git checkout feature-openmp
+```
   
 ##  Implementation status
 
