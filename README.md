@@ -32,8 +32,12 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
 
-##  USE_UG4
-TThe module allows to test the linear algebra provided by UG4. In this case the option *USE_UG4* will be activated. This is done if, if UG4 is found in the path provided by the environment variable *UG4_ROOT*. 
+##  Using UG4
+The module allows to test the linear algebra provided by UG4, if 
+```
+#define USE_UG4
+```
+is activated. This is done if, if UG4 is found in the path provided by the environment variable *UG4_ROOT*. 
 
 
 If UG4 has not been installed:
