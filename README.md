@@ -10,8 +10,10 @@ Aufruf:
 ./test-XYZ <nVectors> <someDouble>
 ```
 
- 
-a) Experimentieren Sie mit verschiedenen Optimierungen. Als Guideline:
+## Compiler settings 
+
+### Optimization level 
+Experimentieren Sie mit verschiedenen Optimierungen. Als Guideline:
 - O0: Keine Optimierungen
 - O1: Kleiner Code
 - O2: Schnellster Code
@@ -19,6 +21,7 @@ a) Experimentieren Sie mit verschiedenen Optimierungen. Als Guideline:
 
 [Erläuterungen für gcc](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html) 
 
+### Machine specific binaries
 Weitere nützliche Flags (Compiler-spezifisch!): 
 - Intel: -xHost
 - clang/gcc: -march=native
