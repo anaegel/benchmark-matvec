@@ -31,11 +31,14 @@ b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren
 ```
 OMP_NUM_THREADS=1 ./test-XYZ
 ```
-| Setup         | dot | norm2 | axpy | matmul | matmulp |
-|---------------|-----|-------|------|--------|---------|
-| Plain         | x   | x     | x    |        |         |
-| SIMD          | x   | x     | x    |        |         |
-| SIMD + OpenMP | x   | x     | x    |        |         |
-| USE_CBLAS     | x   | x     | x    |        |         |
-| USE_UG4       | x   | x     | x    | x      | x       |
-| USE_EIGEN3    | x   | x     | x    | x      | x       |
+| Setup         | dot | norm2 | axpy | matmul | matmul_tranpose |
+|---------------|-----|-------|------|--------|-----------------|
+| Plain         | x   | x     | x    |        |                 |
+| SIMD          | x   | x     | x    |        |                 |
+| SIMD + OpenMP | x   | x     | x    |        |                 |
+|---------------|-----|-------|------|--------|-----------------|
+| USE_CBLAS     | x   | x     | x    |        |                 |
+|---------------|-----|-------|------|--------|-----------------|
+| USE_MKL       | x   | x     | x    |        |                 |
+| USE_UG4       | x   | x     | x    | x      | x               |
+| USE_EIGEN3    | x   | x     | x    | x      | x               |
