@@ -1,9 +1,7 @@
-# Entwurf einer Testsuite 
-
+# Benchmark suite for BLAS routines
 
 [![Test Coverage](https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/test_coverage)](https://codeclimate.com/github/anaegel/benchmark-matvec/test_coverage)
 
-Modellierung und Simulation 2
 (c) Arne Naegel, Goethe University Frankfurt 
 
 Aufruf:
@@ -26,15 +24,17 @@ Weitere nützliche Flags (Compiler-spezifisch!):
 - clang/gcc: -march=native
 
 
-b) Via OpenMP unterstützen die Compiler bereits Multithreading. Experimentieren Sie mit```
+
+## Support for OpenMP
+
+Most compilers support multithreading using OpenMP. To include this in the tests, use 
 
 ```
-OMP_NUM_THREADS=1 ./test-XYZ
+OMP_NUM_THREADS=1 ./test-XYZ 3 0.1
 ```
 
 
-
-##  Testing BLAS libraried
+##  Testing BLAS libraries
 BLAS libraries are activated by 
 ```
 #define USE_BLAS
