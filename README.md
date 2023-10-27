@@ -3,8 +3,8 @@
 
 [![Test Coverage](https://api.codeclimate.com/v1/badges/4574f8cee11c1e3a82aa/test_coverage)](https://codeclimate.com/github/anaegel/benchmark-matvec/test_coverage)
 
-Modellierung und Simulation 2 - Winter 2021/22
-(c) G-CSC, Uni Frankfurt
+Modellierung und Simulation 2
+(c) Arne Naegel, Goethe University Frankfurt 
 
 Aufruf:
 
@@ -36,9 +36,7 @@ OMP_NUM_THREADS=1 ./test-XYZ
 | Plain         | x   | x     | x    |        |                 |
 | SIMD          | x   | x     | x    |        |                 |
 | SIMD + OpenMP | x   | x     | x    |        |                 |
-|---------------|-----|-------|------|--------|-----------------|
 | USE_CBLAS     | x   | x     | x    |        |                 |
-|---------------|-----|-------|------|--------|-----------------|
 | USE_MKL       | x   | x     | x    |        |                 |
 | USE_UG4       | x   | x     | x    | x      | x               |
 | USE_EIGEN3    | x   | x     | x    | x      | x               |
