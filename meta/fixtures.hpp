@@ -1,12 +1,8 @@
 #pragma once
 
-template <typename TVector>
-void SetRandom(size_t n, int c, TVector &x)
-{
-	 for (size_t i=0; i<n; ++i)
-	 { x[i] = 1.0*i*c; }
-}
 
+#include <math.h>
+#include <iostream>
 
 
 

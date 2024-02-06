@@ -14,3 +14,5 @@
     std::cout << "elapsed time: " << elapsed_seconds.count() <<  "s, ";\
     std::cout << "transfer: " << (mem/GIGA)/elapsed_seconds.count() <<  " GB/s, ";\
     std::cout << "computing: " << (flop/GIGA)/elapsed_seconds.count() <<  " GFLOP/s";}
+
+

@@ -13,10 +13,10 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set (CMAKE_CXX_STANDARD 17)
 
 # set(CMAKE_CXX_FLAGS_RELEASE "-g -O0 --std=c++14")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++14")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++17")
 
 ###################################
-# System specific Options.
+# System specific options.
 ###################################
 if(APPLE)
 	ADD_COMPILE_OPTIONS(-framework Accelerate -DACCELERATE_NEW_LAPACK)
@@ -56,7 +56,7 @@ add_executable(${MY_EXEC_NAME} demo.cpp)
 ###############################
 find_package(OpenMP REQUIRED)
 if (OpenMP_FOUND)
-	message(STATUS "Found OpenMP!")
+	message(STATUS "** OpenMP!")
 	add_compile_definitions(USE_OPENMP)
 	target_link_libraries(${MY_EXEC_NAME} PUBLIC OpenMP::OpenMP_CXX)
 endif (OpenMP_FOUND)
@@ -70,7 +70,7 @@ message(STATUS "Checking BLAS (select version using BLA_VENDOR=${BLA_VENDOR})...
 find_package(BLAS)
 
 if (BLAS_FOUND)
-   message(STATUS "Found BLAS: ${BLAS_LIBRARIES}, ${BLAS_LINKER_FLAGS}")
+   message(STATUS "** BLAS: ${BLAS_LIBRARIES}, ${BLAS_LINKER_FLAGS}")
    message(STATUS "Info: Using BLAS (Include: ${BLAS_INCLUDE_DIR}, Lib: ${BLAS_LIBRARIES})")	
    IF (APPLE)
    	  add_compile_definitions(USE_CBLAS)
@@ -107,7 +107,7 @@ endif (NOT BLAS_FOUND)
 ###############################
 find_package (Eigen3 3.3 NO_MODULE)
 if(Eigen3_FOUND) 
- 	message(STATUS "Found Eigen3: ${Eigen3_FOUND}")
+ 	message(STATUS "** Eigen3: ${Eigen3_FOUND}")
 	add_compile_definitions(USE_EIGEN3)
 	target_link_libraries(${MY_EXEC_NAME} PUBLIC Eigen3::Eigen)
 endif(Eigen3_FOUND) 
@@ -116,7 +116,7 @@ endif(Eigen3_FOUND)
 # UG4 (optional)
 ###############################
 if(DEFINED ENV{UG4_ROOT})
-	message(STATUS "Found UG4: $ENV{UG4_ROOT}")
+	message(STATUS "** UG4: $ENV{UG4_ROOT}")
 	add_compile_definitions(USE_UG4)
 	target_include_directories (${MY_EXEC_NAME} PUBLIC 
 	"$ENV{UG4_ROOT}/ugcore/ugbase" 
@@ -130,7 +130,7 @@ endif(DEFINED ENV{UG4_ROOT})
 ###############################
 find_package(IntelSYCL)
 if(IntelSYCL_FOUND) 
- 	message(STATUS "Found Intel-SYCL: ${IntelSYCL_FOUND}")
+ 	message(STATUS "** Intel-SYCL: ${IntelSYCL_FOUND}")
 	add_compile_definitions(USE_SYCL)
 	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
 endif(IntelSYCL_FOUND) 
@@ -151,12 +151,58 @@ if (DEFINED RAJA_DIR)
   add_compile_definitions(USE_RAJA)
 endif ()
 
+###############################
+# OpenCL (optional)
+###############################
+find_package(OpenCL)
+message(STATUS "** OpenCL: ${OpenCL_FOUND}")
+if(OpenCL_FOUND) 
+	# target_link_libraries(vadd OpenCL::OpenCL)
+	add_compile_definitions(USE_OPENCL)
+	target_include_directories (${MY_EXEC_NAME} PUBLIC OpenCL::OpenCL)
+endif() 
+
+###############################
+# Apple Metal (optional)
+###############################
+if(0) 
+	# target_link_libraries(vadd OpenCL::OpenCL)
+	add_compile_definitions(USE_METAL)
+	add_library(metal kernels/metal/kernel-metal.cpp)
+	include_directories (AFTER kernels/metal/metal-cpp)
+endif() 
+
+###############################
+# Torch (optional)
+###############################
+find_package(Torch)
+message(STATUS "** Torch: ${Torch_FOUND}")
+if(Torch_FOUND) 
+	message(STATUS "lib: ${TORCH_LIBRARY}")
+	message(STATUS "inc: ${TORCH_INCLUDE_DIRS}")
+
+	add_compile_definitions(USE_TORCH)
+
+	# kernels/test with torch
+	add_library(kerneltorch kernels/torch/kernel-torch.cpp)
+
+	target_include_directories (kerneltorch PUBLIC ${TORCH_INCLUDE_DIRS})
+	target_link_libraries(kerneltorch PUBLIC ${TORCH_LIBRARIES})
+	# target_include_directories (${MY_EXEC_NAME} PUBLIC ${TORCH_INCLUDE_DIRS})
+	target_link_libraries(${MY_EXEC_NAME} PUBLIC kerneltorch ${TORCH_LIBRARY} c10)
+
+	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  		#set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0")
+		#add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
+	endif()
+endif() 
+
 
 ###############################
 # Google benchmark (optional)
 ###############################
 find_package(benchmark)
-message(STATUS "Found Google benchmark: ${benchmark_FOUND}")
+message(STATUS "** Google benchmark: ${benchmark_FOUND}")
 if(benchmark_FOUND) 
 	add_compile_definitions(-DUSE_GOOGLE_BENCHMARK)
 endif(benchmark_FOUND) 
@@ -164,8 +210,9 @@ endif(benchmark_FOUND)
 
 
 # if(OpenMP_CXX_FOUND)
-	target_compile_definitions(${MY_EXEC_NAME} PUBLIC ${HAS_BLAS} ${HAS_MKL_BLAS})
-	target_compile_options(${MY_EXEC_NAME} PUBLIC -flax-vector-conversions ${MyCompileOptions})
-
-# endif()
+target_compile_definitions(${MY_EXEC_NAME} PUBLIC ${HAS_BLAS} ${HAS_MKL_BLAS})
+target_compile_options(${MY_EXEC_NAME} PUBLIC -flax-vector-conversions ${MyCompileOptions})
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	target_compile_options(${MY_EXEC_NAME} PUBLIC "-D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
 
