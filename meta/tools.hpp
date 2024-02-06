@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdlib.h>
+
 template <typename TVector>
 void SetRandom(size_t n, int c, TVector &x)
 {
