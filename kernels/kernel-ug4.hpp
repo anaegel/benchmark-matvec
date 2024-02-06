@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef USE_UG4
 #include "lib_algebra/cpu_algebra_types.h"
 
 template <class TValue>
@@ -172,11 +173,7 @@ struct mvops {
 
 
 
-// Some dummies.
-namespace ug {
 
-	LogAssistant& LogAssistant::instance() {}
-}
+#endif
 
-
-void  ug_assert_failed() {}
+void run_test_ug4(int niter, int c);

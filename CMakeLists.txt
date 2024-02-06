@@ -49,7 +49,7 @@ message("Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 # Define executable
 ###################################
 set(MY_EXEC_NAME "test-${CMAKE_CXX_COMPILER_ID}")
-add_executable(${MY_EXEC_NAME} demo.cpp)
+add_executable(${MY_EXEC_NAME} kernels/kernel-eigen.cpp kernels/kernel-sycl.cpp kernels/kernel-ug4.cpp demo.cpp)
 
 ###############################
 # OpenMP 

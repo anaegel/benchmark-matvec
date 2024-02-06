@@ -1,7 +1,14 @@
 #pragma once
 
+#ifdef USE_EIGEN3
 
+#include <cstdlib>
 #include <Eigen/Sparse>
+
+// Fixtures.
+#include "../meta/tools.hpp"
+#include "../meta/fixtures.hpp"
+#include "../meta/tests.hpp"
 
 struct EigenVectorAllocator
 {
@@ -126,3 +133,10 @@ struct mvops {
     { y += A*x; }
 };
 }
+
+#endif
+
+
+
+// Exported function.
+void run_test_eigen3(int niter, int c);

@@ -190,96 +190,10 @@ void run_test_mkl(int niter, int c)
 
 
 
-////////////////////////////////////////////////
-// Tests for Eigen3.
-////////////////////////////////////////////////
-
-#ifdef USE_EIGEN3
-void run_test_eigen3(int niter, int c)
-{
-	{
-
-		typedef Eigen::VectorXd TVector;
-
-		// Vector tests
-		Fixture<EigenVectorAllocator, TVector> f(niter, NVECTOR, c);
-		f.SetUp();
-		UnitTest_BLAS_Level1<myeigen::mvops>(f.test,f.niter, f.n);
-		PerfTest_BLAS_Level1<myeigen::mvops>(f.test,f.niter, f.n);
-		f.TearDown();
-
-		// Matrix-vector tests
-    	MatrixVectorFixture<EigenMatrixVectorAllocator> fdata(NCELLS);
-    	fdata.SetUp();
-    	UnitTest_BLAS_Level2<myeigen::mvops>(50*niter, fdata);
-    	PerfTest_BLAS_Level2<myeigen::mvops>(50*niter, fdata);
-    	fdata.TearDown();
-	}
-
-}
-#endif
 
 
-////////////////////////////////////////////////
-// Tests for UG4.
-////////////////////////////////////////////////
-#undef USE_UG4
-#ifdef USE_UG4
-
-template <typename TAllocator>
-void run_single_test_ug4(int niter, int c, size_t block_size=1)
-{
-	Fixture<TAllocator> f(niter, NVECTOR, c);
-	f.SetUp();
-	UnitTest_BLAS_Level1<myug4::mvops>(f.test,f.niter, f.n, block_size);
-	PerfTest_BLAS_Level1<myug4::mvops>(f.test,f.niter, f.n, block_size);
-	f.TearDown();
-
-	MatrixVectorFixture<TAllocator> fdata(NCELLS);
-	fdata.SetUp();
-	UnitTest_BLAS_Level2<myug4::mvops>(50*niter, fdata, block_size);
-	PerfTest_BLAS_Level2<myug4::mvops>(50*niter, fdata, block_size);
-	fdata.TearDown();
-
-}
 
 
-//! Run all tests for UG4.
-void run_test_ug4(int niter, int c)
-{
-
-	std::cout << "*** UG4-CPU1" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUAlgebra> TAllocator1;
-	run_single_test_ug4<TAllocator1> (niter, c, 1);
-
-	std::cout << "*** UG4-CPU2" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<2>> TAllocator2;
-	run_single_test_ug4<TAllocator2> (niter, c, 2);
-
-	std::cout << "*** UG4-CPU3" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<3>> TAllocator3;
-	run_single_test_ug4<TAllocator3> (niter, c, 3);
-
-	std::cout << "*** UG4-CPU4" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<4>> TAllocator4;
-	run_single_test_ug4<TAllocator4> (niter, c, 4);
-
-	std::cout << "*** UG4-CPU8" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<8>> TAllocator8;
-	run_single_test_ug4<TAllocator8> (niter, c, 8);
-
-/*
-	std::cout << "UG4-CPU10" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<10>> TAllocator10;
-	run_single_test_ug4<TAllocator10> (niter, c, 10);
-
-	std::cout << "UG4-CPU16" << std::endl;
-	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<16>> TAllocator16;
-	run_single_test_ug4<TAllocator16> (niter, c, 16);
-
-*/
-}
-#endif
 
 
 #ifdef GOOGLE_BENCHMARK
@@ -367,11 +281,10 @@ int main(int argc, char* argv[])
 
 #ifdef USE_UG4
     {
-           std::cout << "UG4: " << std::endl;
-           run_test_ug4(niter, c);
+         std::cout << "UG4: " << std::endl;
+         run_test_ug4(niter, c);
     }
 #endif
-
 
 
 
