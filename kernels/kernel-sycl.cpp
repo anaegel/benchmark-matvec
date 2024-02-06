@@ -12,25 +12,12 @@ using namespace cl;
 #include "../meta/tests.hpp"
 
 
-// Aligned memory allocation for MKL.
-struct SyclMemoryAllocator
+
+
+// StdArrayAllocator is aligned.
+struct SyclFixture : public Fixture<StdArrayAllocator>
 {
-	typedef double* TVector;
-
-	static void allocate_vector   (size_t n, TVector &v)
-	{ v = (double *) malloc(n *sizeof(double)); }
-
-	static void deallocate_vector (TVector &v)
-	{ free(v); }
-
-   //  void set_queue(sycl::queue* Q) {q=Q;}
-   // static sycl::queue q;
-};
-
-
-struct SyclFixture : public Fixture<SyclMemoryAllocator>
-{
-    typedef Fixture<SyclMemoryAllocator> fixture_type;
+    typedef Fixture<StdArrayAllocator> fixture_type;
 
     SyclFixture(int niter, size_t n, int c)
     : fixture_type(niter, n, c) {}
@@ -41,11 +28,11 @@ struct SyclFixture : public Fixture<SyclMemoryAllocator>
     void TearDown()
     { fixture_type::TearDown(); }
 
-    //
 };
 
 
-// MKL-BLAS interface.
+
+// SYCL interface.
 namespace mysycl {
 
     struct mvops {
@@ -53,9 +40,10 @@ namespace mysycl {
         template <class TVector>
         static double dot(const int N, const TVector &x, const TVector &y)
         {
-           sycl::queue q;
+        	sycl::queue q;
             // std::cout << "dot:" << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
+           	// Buffers re-use existing memory.
             sycl::buffer<double,1> xbuf(&x[0], N);
             sycl::buffer<double,1> ybuf(&y[0], N);
 
@@ -70,10 +58,9 @@ namespace mysycl {
 
                 auto asum = dbuf.get_access<sycl::access::mode::read_write> (h);
                 auto red = sycl::reduction(asum, sycl::plus<double>());
-                // auto red = sycl::reduction(dbuf, h, 0.0, sycl::plus<double>());
+
                 h.parallel_for(sycl::range<1>(N), red,
-                	[=](sycl::id<1> i, auto &sum)
-					{ sum += ax[i] * ay[i]; }
+                	[=](sycl::id<1> i, auto &sum) { sum += ax[i] * ay[i]; }
                 );
             }).wait();
 
@@ -83,7 +70,25 @@ namespace mysycl {
         template <class TVector>
         static double norm2(const int N, const TVector &x)
         {
-        	return dot<TVector>(N,x,x);
+        	sycl::queue q;
+        	sycl::buffer<double,1> xbuf(&x[0], N);
+
+        	// Initialize zero.
+        	double dotResult = 0.0;
+        	sycl::buffer<double,1> dbuf(&dotResult, 1);
+
+        	// Compute norm.
+        	q.submit([&] (auto &h) {
+        		auto ax = xbuf.get_access<sycl::access::mode::read> (h);
+        		auto asum = dbuf.get_access<sycl::access::mode::read_write> (h);
+        		auto red = sycl::reduction(asum, sycl::plus<double>());
+
+        		h.parallel_for(sycl::range<1>(N), red,
+        				[=](sycl::id<1> i, auto &sum) { sum += ax[i] * ax[i]; }
+        		);
+        	}).wait();
+
+        	return dotResult;
         }
 
         template <class TVector>

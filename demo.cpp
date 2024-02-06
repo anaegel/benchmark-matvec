@@ -22,10 +22,11 @@
 #include <benchmark/benchmark.h>
 #endif
 
-const int myAllocSize=64;
+
 
 // Fixtures (meta-programming)
 #include "meta/fixtures.hpp"
+#include "meta/tools.hpp"
 
 // Default kernel.
 #include "kernels/kernel-default.hpp"
@@ -82,36 +83,6 @@ const int myAllocSize=64;
 #endif
 
 
-//!
-struct StdArrayAllocator
-{
-	typedef double* TVector;
-
-	static void allocate_vector (size_t n, TVector &p)
-	{ 
-
-        #ifdef _WIN32
-            p = (double*) _aligned_malloc(n*sizeof(double), myAllocSize);
-        #else 
-           p = (double*) aligned_alloc(myAllocSize, n*sizeof(double));
-           // p = new double[n];
-        #endif
-        //p = (double*) _mm_alloc( n * sizeof(double), myAllocSize);
-    }
-
-
-	static void  deallocate_vector(TVector &p)
-	{ 
-         #ifdef _WIN32
-             _aligned_free(p);
-        #else 
-            free(p);
-            // delete p;
-        #endif
-       
-        //_mm_free(p);
-    }
-};
 
 
 
