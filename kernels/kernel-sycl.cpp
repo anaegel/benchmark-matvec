@@ -122,6 +122,7 @@ void run_test_sycl(int niter, int c)
     f.SetUp();
 
     //std::cout << "Test:" << std::endl;
+    UnitTest_BLAS_Level1<mysycl::mvops>(f.test, f.niter, f.n);
     PerfTest_BLAS_Level1<mysycl::mvops>(f.test,f.niter, f.n);
 
     //std::cout << "Teardown:" << std::endl;

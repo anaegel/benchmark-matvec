@@ -6,7 +6,7 @@
 #include "timer.hpp"   		// Timing operations.
 
 #define NCELLS 2000
-#define NVECTOR 40000000
+#define NVECTOR 4000000
 
 
 
