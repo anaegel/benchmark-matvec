@@ -1,3 +1,5 @@
 [submodule "kernels/kernel-ug4/ugcore"]
 	path = kernels/kernel-ug4/ugcore
 	url = git@github.com:UG4/ugcore.git
+[submodule "ugcore"]
+	branch = feature-openmp
