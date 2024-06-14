@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_MKL_BLAS
+
 #include <mkl.h>
 
 
@@ -48,3 +50,7 @@ namespace mymkl {
 
 }
 
+
+#endif
+
+void run_test_mkl(int niter, int c);
