@@ -14,7 +14,7 @@ struct MKLMemoryAllocator
 	{ v = (double*) mkl_malloc(n*sizeof(double), myAllocSize); }
 
 	static void deallocate_vector (TVector &v)
-	{ delete v; }
+	{ mkl_free(v); }
 };
 
 
@@ -23,7 +23,7 @@ struct MKLMemoryAllocator
 namespace mymkl {
 
     struct mvops {
-    	static const MKL_INT one=1;
+    	static const MKL_INT one;
         template <class TVector>
         static double dot(const int n, const TVector &x, const TVector &y)
         {
