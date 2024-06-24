@@ -146,15 +146,21 @@ struct mvops {
 	// using  operations_vec.h
     template <class TVector>
     static double dot(const int N, const TVector &x, const TVector &y)
-    { return ug::VecProd(x,y); }
+    {
+    	return ug::vector_operations<TVector>::dot(x,y); // return ug::VecProd(x,y);
+    }
 
     template <class TVector>
     static double norm2(const int N, const TVector &x)
-    { return ug::VecNormSquared(x); } // ug::VecProd(x,x);
+    {
+    	return ug::vector_operations<TVector>::norm2(x); // return ug::VecNormSquared(x);
+    }
 
     template <class TVector>
     static void axpy(const int N, double alpha, const TVector &x, TVector &y)
-    { ug::VecScaleAdd(y, alpha, x, 1.0, y); }
+    {
+    	ug::vector_operations<TVector>::axpy(alpha, x, y); // ug::VecScaleAdd(y, alpha, x, 1.0, y);
+    }
 
 
     template <class TVector, class TMatrix>

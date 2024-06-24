@@ -52,6 +52,7 @@ void run_test_ug4(int niter, int c)
 	typedef UG4AlgebraAllocator<ug::CPUAlgebra> TAllocator1;
 	run_single_test_ug4<TAllocator1> (niter, c, 1);
 
+	/*
 	std::cout << "*** UG4-CPU2" << std::endl;
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<2>> TAllocator2;
 	run_single_test_ug4<TAllocator2> (niter, c, 2);
@@ -66,7 +67,7 @@ void run_test_ug4(int niter, int c)
 
 	std::cout << "*** UG4-CPU8" << std::endl;
 	typedef UG4AlgebraAllocator<ug::CPUBlockAlgebra<8>> TAllocator8;
-	run_single_test_ug4<TAllocator8> (niter, c, 8);
+	run_single_test_ug4<TAllocator8> (niter, c, 8);*/
 
 /*
 	std::cout << "UG4-CPU10" << std::endl;
