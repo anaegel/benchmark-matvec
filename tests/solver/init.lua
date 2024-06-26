@@ -58,85 +58,13 @@ print("    distType   = " .. distributionType)
 -- choose algebra
 InitUG(2, AlgebraType("CPU", 1));
 
--- create Instance of a Domain
-print("Create Domain.")
-dom = Domain()
-
--- load domain
-print("Load Domain from File.")
-LoadDomain(dom, gridName)
-
--- create Refiner
-print("Create Refiner")
--- Create a refiner instance. This is a factory method
--- which automatically creates a parallel refiner if required.
-refiner = GlobalDomainRefiner(dom)
-
--- Performing pre-refines
-print("Perform (non parallel) pre-refinements of grid")
-for i=1,numPreRefs do
-	write( "PreRefinement step " .. i .. " ...")
-	refiner:refine()
-	print( " done.")
-end
-
--- get number of processes
-numProcs = NumProcs()
-
--- Distribute the domain to all involved processes
--- Since only process 0 loaded the grid, it is the only one which has to
--- fill a partitionMap (but every process needs one and has to return his map
--- by calling 'DistributeDomain()', even if in this case the map is empty
--- for all processes but process 0).
-if numProcs > 1 then
-	print("Distribute domain with 'distributionType' = " .. distributionType .. "...")
-	partitionMap = PartitionMap()
-	
-	if ProcRank() == 0 then
-		if distributionType == "bisect" then
-			util.PartitionMapBisection(dom, partitionMap, numProcs)
-			
-		elseif distributionType == "grid2d" then
-			local numNodesX, numNodesY = util.FactorizeInPowersOfTwo(numProcs / numProcsPerNode)
-			util.PartitionMapLexicographic2D(dom, partitionMap, numNodesX,
-											 numNodesY, numProcsPerNode)
-	
-		elseif distributionType == "metis" then
-			util.PartitionMapMetis(dom, partitionMap, numProcs)
-											 
-		else
-		    print( "distributionType not known, aborting!")
-		    exit()
-		end
-
-	-- save the partition map for debug purposes
-		if verbosity >= 1 then
-			print("saving partition map to 'partitionMap_p" .. ProcRank() .. ".ugx'")
-			SavePartitionMap(partitionMap, dom, "partitionMap_p" .. ProcRank() .. ".ugx")
-		end
-	end
-	
-	print("Redistribute domain with 'distributionType' = '" .. distributionType .. "' ...")
-	if DistributeDomain(dom, partitionMap, true) == false then
-		print("Redistribution failed. Please check your partitionMap.")
-		exit()
-	end
-	print("... domain distributed!")
-	delete(partitionMap)
-end
+dom=util.CreateAndDistributeDomain(gridName, numRefs, numPreRefs)
 
 
 --------------------------------------------------------------------------------
 -- end of partitioning
 --------------------------------------------------------------------------------
 
--- Perform post-refine
-print("Refine Parallel Grid")
-for i=numPreRefs+1,numRefs do
-	write( "Refinement step " .. i .. " ...")
-	refiner:refine()
-	print( " done!")
-end
 
 
 -- Make sure, that the required subsets are present
@@ -160,7 +88,7 @@ if verbosity >= 1 then
 	end
 end
 
-print("NumProcs is " .. numProcs .. ", numPreRefs = " .. numPreRefs .. ", numRefs = " .. numRefs .. ", grid = " .. gridName)
+--print("NumProcs is " .. numProcs .. ", numPreRefs = " .. numPreRefs .. ", numRefs = " .. numRefs .. ", grid = " .. gridName)
 
 -- create Approximation Space
 print("Create ApproximationSpace")
@@ -173,7 +101,7 @@ approxSpace:print_layout_statistic()
 approxSpace:print_statistic()
 
 -- lets order indices using Cuthill-McKee
-OrderCuthillMcKee(approxSpace, true);
+-- OrderCuthillMcKee(approxSpace, true);
 
 --------------------------------------------------------------------------------
 --  Assembling

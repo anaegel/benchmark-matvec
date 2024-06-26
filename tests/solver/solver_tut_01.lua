@@ -63,7 +63,7 @@ convCheck = ConvCheck()
 convCheck:set_maximum_steps(1000)
 convCheck:set_minimum_defect(1e-11)
 convCheck:set_reduction(1e-12)
-convCheck:set_verbose(true)
+convCheck:set_verbose(false)
 
 -- create linear solver
 linSolver = LinearSolver()
