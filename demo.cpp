@@ -52,6 +52,10 @@
 #include "kernels/kernel-blas.hpp"
 #endif
 
+// Kokkos.
+#ifdef USE_MKL_BLAS
+#include "kernels/kokkos/kernel-kokkos.hpp"
+#endif
 
 // Intel MKL.
 #ifdef USE_MKL_BLAS
@@ -83,6 +87,10 @@
 #endif
 
 
+// Torch. 
+#ifdef USE_KOKKOS
+#include "kernels/kokkos/kernel-kokkos.hpp"
+#endif
 
 
 
@@ -216,6 +224,18 @@ int main(int argc, char* argv[])
         std::cout << "For std::vector<double>: " << std::endl;
         run_test<StdVectorAllocator> (niter, c);
     }
+
+#ifdef USE_KOKKOS
+    {
+        Kokkos::initialize(argc, argv);
+        std::cout << "*** Kokkos-Plain: " << std::endl;
+        mykokkos::plain::run_test(niter, c);
+        std::cout << "*** Kokkos-SIMD: " << std::endl;
+        mykokkos::simd::run_test(niter, c);
+    
+    }
+
+#endif
 
 #ifdef USE_EIGEN3
     {

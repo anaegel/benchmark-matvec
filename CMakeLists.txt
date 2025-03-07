@@ -1,7 +1,7 @@
 # CMakeLists files in this project can
 # refer to the root source directory of the project as ${HELLO_SOURCE_DIR} and
 # to the root binary directory of the project as ${HELLO_BINARY_DIR}.
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.12)
 project (HELLO)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -115,6 +115,7 @@ endif(Eigen3_FOUND)
 ###############################
 # UG4 (optional)
 ###############################
+if (0)
 if(DEFINED ENV{UG4_ROOT})
 	message(STATUS "** UG4: $ENV{UG4_ROOT}")
 	add_compile_definitions(USE_UG4)
@@ -124,7 +125,7 @@ if(DEFINED ENV{UG4_ROOT})
 else(DEFINED ENV{UG4_ROOT})
 	message(STATUS "UG4 not found.")
 endif(DEFINED ENV{UG4_ROOT})
-
+endif (0)
 ###############################
 # SYCL (experimental)
 ###############################
@@ -145,6 +146,9 @@ if(AdaptiveCPP_FOUND)
 endif(AdaptiveCPP_FOUND) 
 
 
+###############################
+# RAJA (optional)
+###############################
 if (DEFINED RAJA_DIR)
   find_package(RAJA REQUIRED)
   # blt_print_target_properties(TARGET RAJA)
@@ -171,6 +175,20 @@ if(0)
 	add_library(metal kernels/metal/kernel-metal.cpp)
 	include_directories (AFTER kernels/metal/metal-cpp)
 endif() 
+
+###############################
+# Kokkos (optional)
+###############################
+find_package(Kokkos 4.2 CONFIG)
+message(STATUS "** Kokkos status: ${Kokkos_FOUND}")
+
+if(Kokkos_FOUND) 
+	message(STATUS "** Kokkos status: ${Kokkos_INCLUDE}")
+	add_compile_definitions(USE_KOKKOS)
+	add_library(kernelkokkos kernels/kokkos/kernel-kokkos.cpp)
+	target_link_libraries(kernelkokkos PRIVATE Kokkos::kokkos)
+	target_link_libraries(${MY_EXEC_NAME} PRIVATE kernelkokkos Kokkos::kokkos)
+endif(Kokkos_FOUND) 
 
 ###############################
 # Torch (optional)
