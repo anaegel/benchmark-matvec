@@ -12,6 +12,7 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set (CMAKE_CXX_STANDARD 20)
 
+
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native")
 #set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++17")
 
@@ -272,6 +273,7 @@ if(ENABLE_KOKKOS)
 		target_compile_options(kernelkokkos PRIVATE -O3 -mcpu=apple-m1 -ffast-math)
 		target_compile_options(test-kokkos PRIVATE -O3 -mcpu=apple-m1 -ffast-math)
 	endif(APPLE)
+
 	else()
 		message(STATUS "Kokkos still not available after fallback; building without Kokkos kernels.")
 	endif()

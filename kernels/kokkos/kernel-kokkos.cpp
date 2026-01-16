@@ -27,7 +27,9 @@ namespace mykokkos
 		row_map = Kokkos::View<SizeType*> ("row_map", numRows+1);
 		columns = Kokkos::View<Ordinal*>  ("columns", numRows*5);
 		data = Kokkos::View<Scalar*>  ("columns", numRows*5);
+
 /*
+
 		// Fill:
 		for (size_t j=0; j<N; ++j)
 		{
@@ -65,6 +67,7 @@ namespace mykokkos
 			const size_t ind = ijindex(N, N-1, j);
 			tripletList.push_back(T(ind,ind, 1.0));  // set_matrix_row
 		}
+
 
 		*/
 	}
