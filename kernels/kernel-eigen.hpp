@@ -44,16 +44,13 @@ struct EigenMatrixVectorAllocator : public EigenVectorAllocator
 	static size_t ijindex(size_t N, size_t i, size_t j)
 	{ return i*N+j; }
 
-
-	static void init_5pt_matrix(TMatrix& mat, int N)
+	typedef Eigen::Triplet<double> TTriplet;
+	static void create_triplets(std::vector<TTriplet> &tripletList, int n, int N)
 	{
-		const size_t n = mat.rows();
-
-		// Init: Create triplets.
-		typedef Eigen::Triplet<double> T;
-		std::vector<T> tripletList;
+		assert(N*N == n);
+		
+		using T= TTriplet;
 		tripletList.reserve(n*5);
-
 
 		// Fill:
 		for (size_t j=0; j<N; ++j)
@@ -92,6 +89,17 @@ struct EigenMatrixVectorAllocator : public EigenVectorAllocator
 			const size_t ind = ijindex(N, N-1, j);
 			tripletList.push_back(T(ind,ind, 1.0));  // set_matrix_row
 		}
+	}
+
+	static void init_5pt_matrix(TMatrix& mat, int N)
+	{
+		const size_t nrows = mat.rows();
+
+		// Init: Create triplets.
+		typedef Eigen::Triplet<double> T;
+		std::vector<T> tripletList;
+
+		create_triplets(tripletList, nrows, N);
 
 		// DEBUG
 		// for (auto e : tripletList)

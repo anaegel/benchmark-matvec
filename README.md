@@ -64,6 +64,27 @@ The linear algebra of Eigen3 is activated by
 ```
 If Eigen3 is installed, this should be detected automatically by the cmake build process.
 
+## New CMake feature flags
+The project exposes optional CMake switches to enable/disable specific backends and integrations.
+All flags are OFF by default. Use them when configuring CMake, for example:
+
+```
+cmake -S . -B build -DENABLE_KOKKOS=ON -DENABLE_EIGEN3=ON
+cmake -S . -B build -DENABLE_OPENCL=ON
+```
+
+Supported flags:
+- `ENABLE_KOKKOS` - enable Kokkos integration (default OFF)
+- `ENABLE_EIGEN3` - enable Eigen3 (default OFF)
+- `ENABLE_UG4` - enable UG4 integration (default OFF)
+- `ENABLE_INTEL_SYCL` - enable Intel SYCL support (default OFF)
+- `ENABLE_ADAPTIVECPP` - enable AdaptiveCPP SYCL support (default OFF)
+- `ENABLE_RAJA` - enable RAJA (default OFF)
+- `ENABLE_OPENCL` - enable OpenCL (default OFF)
+- `ENABLE_APPLE_METAL` - enable Apple Metal (default OFF)
+
+These flags only control whether CMake attempts to find and wire the corresponding packages; the build still requires the relevant libraries/toolchains to be available on the system.
+
 ##  Testing UG4
 The module allows to test the linear algebra provided by UG4, if 
 ```

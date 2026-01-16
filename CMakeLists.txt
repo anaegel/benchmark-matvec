@@ -10,10 +10,10 @@ endif()
 
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 
-# set(CMAKE_CXX_FLAGS_RELEASE "-g -O0 --std=c++14")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++17")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native")
+#set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native --std=c++17")
 
 ###################################
 # System specific options.
@@ -105,94 +105,186 @@ endif (NOT BLAS_FOUND)
 ###############################
 # Eigen3 (optional)
 ###############################
-find_package (Eigen3 3.3 NO_MODULE)
-if(Eigen3_FOUND) 
- 	message(STATUS "** Eigen3: ${Eigen3_FOUND}")
-	add_compile_definitions(USE_EIGEN3)
-	target_link_libraries(${MY_EXEC_NAME} PUBLIC Eigen3::Eigen)
-endif(Eigen3_FOUND) 
+option(ENABLE_EIGEN3 "Enable Eigen3 support" OFF)
+if(ENABLE_EIGEN3)
+	find_package (Eigen3 3.3 NO_MODULE)
+	if(Eigen3_FOUND)
+		message(STATUS "** Eigen3: ${Eigen3_FOUND}")
+		add_compile_definitions(USE_EIGEN3)
+		target_link_libraries(${MY_EXEC_NAME} PUBLIC Eigen3::Eigen)
+	endif()
+else()
+	message(STATUS "Eigen3 support disabled (ENABLE_EIGEN3=OFF)")
+endif()
 
 ###############################
 # UG4 (optional)
 ###############################
-if (0)
-if(DEFINED ENV{UG4_ROOT})
-	message(STATUS "** UG4: $ENV{UG4_ROOT}")
-	add_compile_definitions(USE_UG4)
-	target_include_directories (${MY_EXEC_NAME} PUBLIC 
-	"$ENV{UG4_ROOT}/ugcore/ugbase" 
-	"$ENV{UG4_ROOT}/externals/BoostForUG4")
-else(DEFINED ENV{UG4_ROOT})
-	message(STATUS "UG4 not found.")
-endif(DEFINED ENV{UG4_ROOT})
-endif (0)
+option(ENABLE_UG4 "Enable UG4 support" OFF)
+if(ENABLE_UG4)
+	if(DEFINED ENV{UG4_ROOT})
+		message(STATUS "** UG4: $ENV{UG4_ROOT}")
+		add_compile_definitions(USE_UG4)
+		target_include_directories (${MY_EXEC_NAME} PUBLIC 
+			"$ENV{UG4_ROOT}/ugcore/ugbase" 
+			"$ENV{UG4_ROOT}/externals/BoostForUG4")
+	else()
+		message(STATUS "UG4 not found.")
+	endif()
+else()
+	message(STATUS "UG4 support disabled (ENABLE_UG4=OFF)")
+endif()
+
 ###############################
 # SYCL (experimental)
 ###############################
-find_package(IntelSYCL)
-if(IntelSYCL_FOUND) 
- 	message(STATUS "** Intel-SYCL: ${IntelSYCL_FOUND}")
-	add_compile_definitions(USE_SYCL)
-	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
-endif(IntelSYCL_FOUND) 
+option(ENABLE_INTEL_SYCL "Enable Intel SYCL support" OFF)
+if(ENABLE_INTEL_SYCL)
+	find_package(IntelSYCL)
+	if(IntelSYCL_FOUND)
+		message(STATUS "** Intel-SYCL: ${IntelSYCL_FOUND}")
+		add_compile_definitions(USE_SYCL)
+		add_sycl_to_target(TARGET ${MY_EXEC_NAME})
+	endif()
+else()
+	message(STATUS "Intel SYCL support disabled (ENABLE_INTEL_SYCL=OFF)")
+endif()
 
 
-find_package(AdaptiveCPP)
-if(AdaptiveCPP_FOUND) 
- 	message(STATUS "Found Adaptive-CPP-SYCL: ${AdaptiveCPP_FOUND}")
-	add_compile_definitions(USE_SYCL)
-	cmake_policy(SET CMP0005 NEW)
-	add_sycl_to_target(TARGET ${MY_EXEC_NAME})
-endif(AdaptiveCPP_FOUND) 
+
+option(ENABLE_ADAPTIVECPP "Enable AdaptiveCPP SYCL support" OFF)
+if(ENABLE_ADAPTIVECPP)
+	find_package(AdaptiveCPP)
+	if(AdaptiveCPP_FOUND)
+		message(STATUS "Found Adaptive-CPP-SYCL: ${AdaptiveCPP_FOUND}")
+		add_compile_definitions(USE_SYCL)
+		cmake_policy(SET CMP0005 NEW)
+		add_sycl_to_target(TARGET ${MY_EXEC_NAME})
+	endif()
+else()
+	message(STATUS "AdaptiveCPP support disabled (ENABLE_ADAPTIVECPP=OFF)")
+endif()
 
 
 ###############################
 # RAJA (optional)
 ###############################
-if (DEFINED RAJA_DIR)
-  find_package(RAJA REQUIRED)
-  # blt_print_target_properties(TARGET RAJA)
-  add_compile_definitions(USE_RAJA)
-endif ()
+option(ENABLE_RAJA "Enable RAJA support" OFF)
+if(ENABLE_RAJA)
+	find_package(RAJA REQUIRED)
+	# blt_print_target_properties(TARGET RAJA)
+	add_compile_definitions(USE_RAJA)
+else()
+	message(STATUS "RAJA support disabled (ENABLE_RAJA=OFF)")
+endif()
 
 ###############################
 # OpenCL (optional)
 ###############################
-find_package(OpenCL)
-message(STATUS "** OpenCL: ${OpenCL_FOUND}")
-if(OpenCL_FOUND) 
-	# target_link_libraries(vadd OpenCL::OpenCL)
-	add_compile_definitions(USE_OPENCL)
-	target_include_directories (${MY_EXEC_NAME} PUBLIC OpenCL::OpenCL)
-endif() 
+option(ENABLE_OPENCL "Enable OpenCL support" OFF)
+if(ENABLE_OPENCL)
+	find_package(OpenCL)
+	message(STATUS "** OpenCL: ${OpenCL_FOUND}")
+	if(OpenCL_FOUND)
+		# target_link_libraries(vadd OpenCL::OpenCL)
+		add_compile_definitions(USE_OPENCL)
+		target_include_directories (${MY_EXEC_NAME} PUBLIC OpenCL::OpenCL)
+	endif()
+else()
+	message(STATUS "OpenCL support disabled (ENABLE_OPENCL=OFF)")
+endif()
 
 ###############################
 # Apple Metal (optional)
 ###############################
-if(0) 
-	# target_link_libraries(vadd OpenCL::OpenCL)
+option(ENABLE_APPLE_METAL "Enable Apple Metal support" OFF)
+if(ENABLE_APPLE_METAL)
 	add_compile_definitions(USE_METAL)
 	add_library(metal kernels/metal/kernel-metal.cpp)
 	include_directories (AFTER kernels/metal/metal-cpp)
-endif() 
+else()
+	message(STATUS "Apple Metal support disabled (ENABLE_APPLE_METAL=OFF)")
+endif()
 
 ###############################
 # Kokkos (optional)
 ###############################
-find_package(Kokkos 4.2 CONFIG)
-message(STATUS "** Kokkos status: ${Kokkos_FOUND}")
+option(ENABLE_KOKKOS "Enable build with Kokkos backend" ON)
 
-if(Kokkos_FOUND) 
-	message(STATUS "** Kokkos status: ${Kokkos_INCLUDE}")
-	add_compile_definitions(USE_KOKKOS)
-	add_library(kernelkokkos kernels/kokkos/kernel-kokkos.cpp)
-	target_link_libraries(kernelkokkos PRIVATE Kokkos::kokkos)
-	target_link_libraries(${MY_EXEC_NAME} PRIVATE kernelkokkos Kokkos::kokkos)
-endif(Kokkos_FOUND) 
+if(ENABLE_KOKKOS)
+	# Prefer a local submodule if present
+	set(KOKKOS_SUBMODULE_DIR "${CMAKE_SOURCE_DIR}/kernels/kokkos/kokkos")
+	if(EXISTS "${KOKKOS_SUBMODULE_DIR}/CMakeLists.txt")
+		message(STATUS "Using Kokkos submodule at ${KOKKOS_SUBMODULE_DIR}")
+		add_subdirectory(${KOKKOS_SUBMODULE_DIR} EXCLUDE_FROM_ALL)
+	else()
+		# Try find system-installed Kokkos first (prefer a released config)
+		find_package(Kokkos 4.2 CONFIG QUIET)
+		message(STATUS "** Kokkos found by find_package: ${Kokkos_FOUND}")
+
+		if(NOT Kokkos_FOUND)
+			message(STATUS "Kokkos not found via find_package; will try FetchContent fallback (this may clone the Kokkos repo).")
+			include(FetchContent)
+
+			# Minimal Kokkos FetchContent fallback. Assumption: it's acceptable to fetch/build
+			# a serial-only Kokkos for local testing. If you want OpenMP/CUDA/HIP enablement,
+			# set the corresponding Kokkos cache variables before configuring.
+			set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+			set(Kokkos_ENABLE_SERIAL ON CACHE BOOL "" FORCE)
+			set(Kokkos_ENABLE_OPENMP OFF CACHE BOOL "" FORCE)
+
+			# NOTE: Choosing 'master' here as a conservative default; override by setting
+			# Kokkos_GIT_TAG in your CMake cache if you prefer a specific release.
+			FetchContent_Declare(
+				kokkos
+				GIT_REPOSITORY https://github.com/kokkos/kokkos.git
+				GIT_TAG master
+			)
+			FetchContent_MakeAvailable(kokkos)
+		endif()
+	endif()
+
+	# Accept either a proper find_package result (Kokkos_FOUND), that the
+	# FetchContent build exposed the imported target Kokkos::kokkos or that the
+	# submodule added the Kokkos target via add_subdirectory.
+	if(Kokkos_FOUND OR TARGET Kokkos::kokkos)
+		message(STATUS "** Kokkos status: available")
+		add_compile_definitions(USE_KOKKOS)
+		add_library(kernelkokkos kernels/kokkos/kernel-kokkos.cpp)
+		target_link_libraries(kernelkokkos PRIVATE Kokkos::kokkos)
+		target_compile_features(kernelkokkos PUBLIC cxx_std_17)
+		target_link_libraries(${MY_EXEC_NAME} PRIVATE kernelkokkos Kokkos::kokkos)
+
+	# Optional small test target that runs a Kokkos smoke test.
+	add_executable(test-kokkos kernels/kokkos/kokkos_test.cpp)
+	target_link_libraries(test-kokkos PRIVATE Kokkos::kokkos)
+	target_compile_features(test-kokkos PUBLIC cxx_std_17)
+	enable_testing()
+	add_test(NAME test-kokkos COMMAND test-kokkos)
+	# Set conservative timeout and ensure test runs in the build directory
+	set_tests_properties(test-kokkos PROPERTIES TIMEOUT 30 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+	# Platform-specific optimization hints: on Apple Silicon enable -mcpu for
+	# better vector instruction selection. These flags are added only to the
+	# kokkos-related targets so they don't override user toolchain settings.
+	if(APPLE)
+		message(STATUS "Applying Apple SIMD compile options for Kokkos targets: -O3 -mcpu=apple-m1 -ffast-math")
+		target_compile_options(kernelkokkos PRIVATE -O3 -mcpu=apple-m1 -ffast-math)
+		target_compile_options(test-kokkos PRIVATE -O3 -mcpu=apple-m1 -ffast-math)
+	endif(APPLE)
+	else()
+		message(STATUS "Kokkos still not available after fallback; building without Kokkos kernels.")
+	endif()
+else()
+	message(STATUS "Kokkos integration disabled by ENABLE_KOKKOS=OFF")
+endif(ENABLE_KOKKOS)
 
 ###############################
 # Torch (optional)
 ###############################
+option(ENABLE_TORCH "Enable build with Torch backend" OFF)
+
+if(ENABLE_TORCH)
 find_package(Torch)
 message(STATUS "** Torch: ${Torch_FOUND}")
 if(Torch_FOUND) 
@@ -213,7 +305,8 @@ if(Torch_FOUND)
   		#set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0")
 		#add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
 	endif()
-endif() 
+endif(Torch_FOUND) 
+endif(ENABLE_TORCH)
 
 
 ###############################

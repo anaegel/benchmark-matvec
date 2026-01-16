@@ -232,6 +232,7 @@ int main(int argc, char* argv[])
         mykokkos::plain::run_test(niter, c);
         std::cout << "*** Kokkos-SIMD: " << std::endl;
         mykokkos::simd::run_test(niter, c);
+        Kokkos::finalize();
     
     }
 

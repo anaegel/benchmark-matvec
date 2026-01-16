@@ -10,20 +10,33 @@ namespace mykokkos
 {
     namespace simd {
         
-
         struct VectorAllocator
         {
-            typedef Kokkos::Experimental::native_simd<double> simd_t;
-            typedef Kokkos::View<simd_t *> TVector;
+            using simd_t = Kokkos::Experimental::simd<double>;
+            using TVector = Kokkos::View<simd_t*, Kokkos::LayoutRight>;
 
-            static void allocate_vector(size_t n, TVector &p)
-            {
-                const size_t N = n / simd_t::size();
-                p = TVector("x", N);
+            static void allocate_vector(size_t n, TVector &p) {
+
+                const size_t Npacks = (n + simd_t::size() - 1) / simd_t::size(); // rundet hoch, falls Tail
+                p = TVector( Kokkos::view_alloc(Kokkos::WithoutInitializing), Npacks );
+/*
+#ifndef NDEBUG
+              std::cerr << " simd_t::size() = "<<  simd_t::size() << std::endl;
+                // Debug: print pointer and alignment modulo 64 bytes
+                auto ptr = reinterpret_cast<uintptr_t>(p.data());
+                fprintf(stderr, "[debug] allocate_vector: view ptr=%p mod64=%zu packs=%zu\n", (void*)ptr, (size_t)(ptr % 64), Npacks);
+#endif
+*/
             }
 
-            //! No dealloc (-> will be done when object is deleted...)
-            static void deallocate_vector(TVector &p) {}
+        
+            //! Dealloc (-> will be done when object is deleted...)
+            static void deallocate_vector(TVector &p) {
+                // Ensure all kernels touching this view finished
+                Kokkos::fence();
+                // Release the managed View (dekrementiert Reference und gibt Speicher frei)
+                p = TVector(); // or: p = {};
+            }
         };
 
     template <typename SIMD, typename T>
@@ -44,42 +57,37 @@ namespace mykokkos
         static double dot(const int N, const TVector &x, const TVector &y)
         {
             const size_t n = N / simd_t::size();
-            double sum = 0.0;
-            Kokkos::parallel_reduce("DOT", n, [=](int64_t i, double &lres)
-                                    { lres += horizontal_add<simd_t, double>(x(i) * y(i)); }, sum);
-            return sum;
-           /* 
-            KokkosVectorAllocator::simd_t agg(0.0);
-            Kokkos::parallel_for("DOT", n, [=](const int64_t i)
-                {  
-                    agg+= x(i)*y(i) // agg=Kokkos::fma(x(i), y(i), agg);
-                });
-            return horizontal_add<KokkosVectorAllocator::simd_t, double>(agg);
-            */
+
+            // Preferred: perform the accumulation in simd lanes and do
+            // the horizontal add only once at the end. This avoids the
+            // per-iteration lane-sum overhead.
+            simd_t agg(0.0);
+            Kokkos::parallel_reduce("DOT", n, KOKKOS_LAMBDA(const int64_t i, simd_t &lres)
+                { lres += x(i) * y(i); }, agg);
+
+            return horizontal_add<simd_t, double>(agg);
+
         }
 
         template <class TVector>
         static double norm2(const int N, const TVector &x) 
         {
             const size_t n = N / simd_t::size();
-            double sum = 0.0;
-            Kokkos::parallel_reduce("NORM2", n, [=](int64_t i, double &lres)
-                                   { lres += horizontal_add<simd_t, double>(x(i) * x(i)); }, sum);
-           return sum;
 
-           /* KokkosVectorAllocator::simd_t agg(0.0);
-            Kokkos::parallel_for("NORM2", N, [=](const int64_t i)
-                { agg+=x(i)*x(i);});
-            return horizontal_add<KokkosVectorAllocator::simd_t, double>(agg);
-            */
+            // Accumulate per-lane and horizontal-add once.
+            simd_t agg(0.0);
+            Kokkos::parallel_reduce("NORM2", n, KOKKOS_LAMBDA(const int64_t i, simd_t &lres)
+                { lres += x(i) * x(i); }, agg);
 
+            return horizontal_add<simd_t, double>(agg);
         }
 
         template <class TVector>
         static void axpy(const int N, double alpha, const TVector &x, TVector &y)
         {
-            Kokkos::parallel_for("DAXPY", N, [=](const int64_t i)
-                                 { y(i) = alpha * x(i) + y(i); });
+            const size_t n = N / simd_t::size();
+            Kokkos::parallel_for("DAXPY", n, KOKKOS_LAMBDA(const int64_t i)
+                { y(i) = alpha * x(i) + y(i); });
         }
     };
 
